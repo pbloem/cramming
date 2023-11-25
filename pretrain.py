@@ -13,11 +13,34 @@ import cramming
 
 log = logging.getLogger(__name__)
 
+def pretrain(cfg, setup):
+
+    # randomness source model
+    source = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
+    # pre-training target model
+    model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
+    voc_size = model.encoder.embedding.word_embedding.num_embeddings
+    batch_size = cfg.train.batch_size
+
+    print(voc_size, batch_size)
+    print(model.encoder.embedding.word_embedding.weight.is_cuda)
+
+    exit()
+
+    # Launch training
+    # for step in trange(cfg.up.num_batches):
+
+    # -- Don't use their engine, just copy over code from gpt.py
+    # -- put parms in cfg.up
+
+
 
 def main_training_process(cfg, setup):
     """This function controls the central training loop."""
     local_time = time.time()
-    model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+    model = pretrain(cfg, setup)
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
