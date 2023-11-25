@@ -57,7 +57,7 @@ def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_prob
             indices_random = torch.zeros_like(inputs, dtype=torch.bool)
             indices_random.scatter_(1, next_10percent_mask_locations, 1)
 
-            random_words = torch.randint(num_tokens, labels.shape, dtype=inputs.dtype)
+            random_words = torch.randint(num_tokens, labels.shape, dtype=inputs.dtype, device=d())
             inputs[indices_random] = random_words[indices_random]
 
             # The rest of the time (10% of the time) we keep the masked input tokens unchanged
