@@ -1,0 +1,18 @@
+enabled:               # Whether to use UP.
+dp: False              # Data parallelism
+init_mult_max: 5.0     # Weight multiplier
+mask_prob_max: 0.7     # Weight masking probability
+buffer_size: 2000      # Number of instances to keep in the buffer
+temperature: 0.5       # Sampling temperature from model probabilities
+reset_prob: 0.01       # Proportion of the buffer to reset each sample
+num_batches: 40_000    # Number of pre-training batches
+batch_size: 40         # Model batch size
+sample_batch_size: 100 # Number of instances in the buffer to pass
+                       # through the model each iterations
+gc: 1.0                # Gradient clipping
+mask_token: 4          # Which masking token to use (4 in the default tokenizer). We hard-code this because the
+                       # tokenizer is loaded after the UP. (see backend/utils.py:170)
+mlm_probability: 0.15  # Proportion of tokens to mask
+accumulate: 1          # How many micro-batches to accumulate over for one update step.
+warmup: 100_000        # Warmup (in instances)
+lr: 1e-4               # Learning rate

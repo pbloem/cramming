@@ -11,7 +11,6 @@ from .attention import get_attention_mechanism
 
 INPLACE = False
 
-
 class EmbeddingComponent(torch.nn.Module):
     def __init__(self, cfg_embedding, norm, norm_eps):
         super().__init__()

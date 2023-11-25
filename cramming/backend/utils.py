@@ -167,6 +167,10 @@ class PatchedDataCollatorForLanguageModeling(transformers.DataCollatorForLanguag
 
         self.mask_token = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
 
+        # Uncomment to figure out the mask token
+        # print(self.mask_token)
+        # exit()
+
     def torch_mask_tokens(self, inputs=None, special_tokens_mask=None):
         """
         Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original.

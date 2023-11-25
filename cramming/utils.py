@@ -29,6 +29,8 @@ import logging
 import hydra
 from omegaconf import OmegaConf, open_dict
 
+import warnings
+
 log = logging.getLogger(__name__)
 os.environ["HYDRA_FULL_ERROR"] = "0"
 
@@ -48,6 +50,7 @@ def main_launcher(cfg, main_fn, job_name=""):
     # Initialize wandb
     if cfg.wandb.enabled:
         _initialize_wandb(setup, cfg)
+
     log.info("--------------------------------------------------------------")
     log.info(f"--------------Launching {job_name} run! ---------------------")
     log.info(OmegaConf.to_yaml(cfg, resolve=True))
@@ -116,7 +119,13 @@ def system_startup(cfg):
             f"No GPU allocated to this process on {socket.gethostname()} with name {cfg.name}. Running in CPU-mode is likely an error."
         )
 
-    allowed_cpus_available = min(psutil.cpu_count(logical=False), len(psutil.Process().cpu_affinity()))  # covering both affinity and phys.
+    try:
+        allowed_cpus_available = min(psutil.cpu_count(logical=False), len(psutil.Process().cpu_affinity()))  # covering both affinity and phys.
+    except AttributeError:
+        warnings.warn('Could not set CPUs dynamically, defaulting to 2.')
+        allowed_cpus_available = 2
+
+
     # Distributed launch?
     if "LOCAL_RANK" in os.environ:
         torch.distributed.init_process_group(backend=cfg.impl.dist_backend)

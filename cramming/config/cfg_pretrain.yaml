@@ -6,6 +6,7 @@ defaults:
   - data: sanity-check-2
   - impl: torch-default
   - wandb: none
+  - up: default
   - train: bert-base
   - _self_
   - override hydra/job_logging: custom
