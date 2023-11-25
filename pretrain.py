@@ -1,6 +1,8 @@
 """Script for a pretraining run."""
 
 import torch
+from torch import nn
+import torch.nn.functional as F
 import hydra
 
 import os
@@ -10,37 +12,209 @@ import logging
 from collections import defaultdict
 
 import cramming
+import up, random, wandb
+
+from up.util import d, sample, gradient_norm, tic, toc
+
+from tqdm import trange
 
 log = logging.getLogger(__name__)
 
+def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True, mask_token=4):
+        """
+        -- Modified from backed/utils to remove the OO/dataloader parts.
+
+        Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original.
+        The ratios in this version are always fixed so that the number of masks is never dynamic!
+
+        Also special_tokens_masks are disregarded in this flavor
+
+        According to timeit this is not slower than the old approach (with was fast enough)
+        """
+        labels = inputs.clone() # prediction target, the unmasked input
+
+        number_of_masks = round(mlm_probability * inputs.shape[1])
+        mask_locations = torch.argsort(torch.randint_like(inputs, inputs.shape[1]))[:, :number_of_masks]
+        # this was slightly fudged to be faster. A draw of torch.rand would be more random, but take slightly longer to sort
+
+        masked_indices = torch.zeros_like(inputs, dtype=torch.bool)
+        masked_indices.scatter_(1, mask_locations, 1)
+        labels[~masked_indices] = -100  # We only compute loss on masked tokens
+        # -- Note that -100 is the default ignore_index in the CrossEntropyLoss
+        #    https: // pytorch.org / docs / stable / generated / torch.nn.CrossEntropyLoss.html
+
+        if use_80_20_rule:
+            # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+            first_80percent_mask_locations = mask_locations[:, : round(0.8 * number_of_masks)]
+
+            indices_replaced = torch.zeros_like(inputs, dtype=torch.bool)
+            indices_replaced.scatter_(1, first_80percent_mask_locations, 1)
+            inputs[indices_replaced] = mask_token
+
+            # 10% of the time, we replace masked input tokens with random word
+            next_10percent_mask_locations = mask_locations[:, round(0.8 * number_of_masks) : round(0.9 * number_of_masks)]
+
+            indices_random = torch.zeros_like(inputs, dtype=torch.bool)
+            indices_random.scatter_(1, next_10percent_mask_locations, 1)
+
+            random_words = torch.randint(num_tokens, labels.shape, dtype=inputs.dtype)
+            inputs[indices_random] = random_words[indices_random]
+
+            # The rest of the time (10% of the time) we keep the masked input tokens unchanged
+            # -- Note that these are different from the unmasked tokens in that we _do_ compute a loss over them.
+            pass
+        else:
+            # 100% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+            inputs[masked_indices] = mask_token
+
+        # This is not used in the default setting
+        # if self.token_drop > 0:
+        #     inputs, labels = self._drop_tokens(inputs, labels)
+
+        return inputs, labels
+
 def pretrain(cfg, setup):
+
+    print('Start universal pretraining.')
+
+    scaler = torch.cuda.amp.GradScaler()
 
     # randomness source model
     source = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
+    # Add one output channel to the source model for the masking.
+    i, o = source.decoder.in_features, source.decoder.out_features
+    source.decoder = nn.Linear(i, o + 1)
+
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
-    voc_size = model.encoder.embedding.word_embedding.num_embeddings
-    batch_size = cfg.train.batch_size
+    opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
+    if cfg.up.warmup > 0:
+        warmup = cfg.up.warmup / cfg.up.accumulate
+        sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (cfg.up.warmup / cfg.up.batch_size), 1.0))
 
-    print(voc_size, batch_size)
-    print(model.encoder.embedding.word_embedding.weight.is_cuda)
+    num_tokens = model.encoder.embedding.word_embedding.num_embeddings
+    context = cfg.arch.embedding.max_seq_length
 
-    exit()
+    if torch.cuda.is_available():
+        model.cuda()
+        source.cuda()
+
+    if cfg.up.dp:
+        model = torch.nn.DataParallel(model)
+        source = torch.nn.DataParallel(model)
+
+    buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
 
     # Launch training
-    # for step in trange(cfg.up.num_batches):
+    for i in (bar := trange(cfg.up.num_batches)):
 
-    # -- Don't use their engine, just copy over code from gpt.py
-    # -- put parms in cfg.up
+        # Sample a batch on the fly
+        with torch.no_grad():
+
+            tic()
+            # Re-initialize the parameters of source (i.e. sample a random source)
+            up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+
+            # Slice a random selection of rows from the buffer (without replacement)
+            iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
+            z = buffer[iz, :]
+
+            # Replace some random rows with uniform random characters (reset)
+            rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
+            mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
+
+            uniform = torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+            z[mask] = uniform[mask]
+
+            # Pass it through the source
+            # -- In non-sequential mode, pass the input through the model, and then mix the input and output together.
+            #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
+            #    probability that the model retains some of the complexity of the input, while also allowing the option
+            #    that the input is entirely ignored.
+
+            output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
+            chars, mask = output[:, :, :-1], output[:, :, -1]
+
+            chars = sample(chars, temperature=cfg.up.temperature)
+            mask = torch.sigmoid(mask).to(torch.bool)
+
+            z[mask] = chars[mask] # replace the masked part of the input by the output samples
+            buffer[iz, :] = z     # replace the inputs in the buffer
+
+            # -- Note that the samples are in full precision. These often require large weights, so mixed precision
+            #    leads to nans and infs and whatnot.
+            sampletime = toc()
+
+        # Perform a training step on batches sampled from the buffer
+
+        tic()
+        # Sample a batch from the buffer
+        iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+
+        batch = buffer[iz, :]
+        if torch.cuda.is_available():
+            batch = batch.cuda()
+
+        # We use the MLM loss to train.
+        inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability)
+
+        with torch.cuda.amp.autocast():
+            output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+            loss = F.cross_entropy(output.transpose(2, 1), targets)
+
+        scaler.scale(loss).backward()
+
+        gn = gradient_norm(model)
+        if cfg.up.gc > 0.0:
+            nn.utils.clip_grad_norm_(model.parameters(), cfg.up.gc)
 
 
+        if i % cfg.up.accumulate == 0:  # perform a step
+            scaler.step(opt)
+            scaler.update()
+
+            opt.zero_grad()
+
+            if warmup > 0:
+                sch.step()
+
+        traintime = toc()
+
+        if cfg.wandb.enabled:
+            wandb.log({
+                'loss': loss,
+                'learning_rate': sch.get_last_lr()[0],
+                'gradient_norm': gn,
+                'sample_time': sampletime,
+                'train_time': traintime,
+                'pre-training': 1.0
+            })
+        bar.set_postfix({'loss': f'{loss:.02}'})
+
+        # if cfg.up.print_everuy > 0 and cfg.up.i % print_every == 0:
+        #     print('target')
+        #     print_batch(batch[:4, :], ascii_only)
+        #
+        #     print('model output')
+        #
+        #     seed = torch.randint(low=0, high=NUM_TOKENS, size=(4, 1), device=d())
+        #     output = sample_sequence(model, seed, context, num_tokens=NUM_TOKENS, length=context,
+        #                              temperature=temperature)
+        #     print_batch(output, ascii_only)
+
+    return model
 
 def main_training_process(cfg, setup):
     """This function controls the central training loop."""
     local_time = time.time()
-    model = pretrain(cfg, setup)
+
+    if cfg.up.enabled:
+        model = pretrain(cfg, setup)
+    else:
+        model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
@@ -213,11 +387,9 @@ def communicate_flags(training_allowed, no_recovery_necessary):
     else:
         return training_allowed, no_recovery_necessary
 
-
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
     cramming.utils.main_launcher(cfg, main_training_process, job_name="pretraining")
-
 
 if __name__ == "__main__":
     launch()
