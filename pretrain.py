@@ -204,6 +204,8 @@ def pretrain(cfg, setup):
         #                              temperature=temperature)
         #     print_batch(output, ascii_only)
 
+    opt.zero_grad()
+
     return model
 
 def main_training_process(cfg, setup):
@@ -217,6 +219,7 @@ def main_training_process(cfg, setup):
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
+
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
         try:
             metadata = torch.load(checkpoint_rendevous, map_location=torch.device("cpu"))["metadata"]
@@ -232,6 +235,7 @@ def main_training_process(cfg, setup):
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
+
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
 

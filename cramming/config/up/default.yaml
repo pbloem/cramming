@@ -1,4 +1,4 @@
-enabled:               # Whether to use UP.
+enabled: False         # Whether to use UP.
 dp: False              # Data parallelism
 init_mult_max: 5.0     # Weight multiplier
 mask_prob_max: 0.7     # Weight masking probability

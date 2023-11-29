@@ -19,7 +19,6 @@ import hydra
 
 """Construct interfaces to some cfg folders for use in packaged installations:"""
 
-
 def get_config(overrides=[]):
     """Return default hydra config."""
     with hydra.initialize(config_path="config"):
