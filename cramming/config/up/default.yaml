@@ -16,3 +16,4 @@ mlm_probability: 0.15  # Proportion of tokens to mask
 accumulate: 1          # How many micro-batches to accumulate over for one update step.
 warmup: 100_000        # Warmup (in instances)
 lr: 1e-4               # Learning rate
+reuse_opt: False       # Whether to reuse the optimizer used in up for the data-based pretraining
