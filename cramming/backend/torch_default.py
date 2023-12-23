@@ -187,6 +187,10 @@ class TorchEngineMinimal(torch.nn.Module):
             new_batch_size = int(self.steps * batch_size_step // self.effective_mbs + 1) * self.effective_mbs
         else:
             new_batch_size = self.cfg_train.batch_size
+
+        # UP Addition: set a minimum batch size to promote stability when re-using the optimizer state.
+        new_batch_size = max(self.cfg_train.min_batch_size, new_batch_size)
+
         self.set_train_batch_size(new_batch_size)
 
     def record_batch_size(self):
