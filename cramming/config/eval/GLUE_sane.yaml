@@ -27,6 +27,7 @@ max_seq_length: 128
 # These can be overwritten by specific tasks
 batch_size: 16
 batch_size_ramp: 0
+min_batch_size: 0
 
 gradient_clipping:
 limited_decay_keys: [bias, LayerNorm.bias, LayerNorm.weight, norm]
