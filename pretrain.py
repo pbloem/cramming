@@ -12,6 +12,9 @@ import logging
 from collections import defaultdict
 
 import cramming
+
+from cramming.backend import _load_optimizer
+
 import up, random, wandb
 
 from up.util import d, sample, gradient_norm, tic, toc
@@ -89,10 +92,8 @@ def pretrain(cfg, setup):
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
-    # We construct a model engine just to get the same optimizer that is used in the second training phase. The engine is
-    # discarded afterwards.
-    model_engine, _, _, _ = cramming.load_backend(model, None, None, cfg.train, cfg.impl, 0, setup=setup)
-    opt = model_engine.optimizer
+    opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
+    # -- `initial_time` is only used for the scheduler (second return value), which we discard.
 
     # Reset the learning rate to the correct UP learning rate.
     for g in opt.param_groups:
