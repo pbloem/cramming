@@ -240,8 +240,12 @@ def main_training_process(cfg, setup):
         sd = opt.state_dict()
 
         if cfg.up.opt_mult > 0.0:
-            for name, tensor in sd:
-                tensor *= cfg.up.opt_mult
+            for val in sd['state'].values():
+                val['exp_avg'] *= cfg.up.opt_mult
+                val['exp_avg_sq'] *= cfg.up.opt_mult
+            # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
+            #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
+            #    universal pretraining.
 
         model_engine.optimizer.load_state_dict(sd)
         # -- reuse the optimizer from the UP training
