@@ -237,7 +237,13 @@ def main_training_process(cfg, setup):
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
     if cfg.up.reuse_opt:
-        model_engine.optimizer = opt
+        sd = opt.state_dict()
+
+        if cfg.up.opt_mult > 0.0:
+            for name, tensor in sd:
+                tensor *= cfg.up.opt_mult
+
+        model_engine.optimizer.load_state_dict(sd)
         # -- reuse the optimizer from the UP training
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
