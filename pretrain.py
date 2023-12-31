@@ -89,7 +89,17 @@ def pretrain(cfg, setup):
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
-    opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
+    # We construct a model engine just to get the same optimizer that is used in the second training phase. The engine is
+    # discarded afterwards.
+    model_engine, _, _, _ = cramming.load_backend(model, None, None, cfg.train, cfg.impl, 0, setup=setup)
+    opt = model_engine.optimizer
+
+    # Reset the learning rate to the correct UP learning rate.
+    for g in opt.param_groups:
+        g['lr'] = cfg.up.lr
+
+    # opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
+
     if cfg.up.warmup > 0:
         warmup = cfg.up.warmup / cfg.up.accumulate
         sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (cfg.up.warmup / cfg.up.batch_size), 1.0))
@@ -236,19 +246,19 @@ def main_training_process(cfg, setup):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
-    if cfg.up.reuse_opt:
-        sd = opt.state_dict()
-
-        if cfg.up.opt_mult > 0.0:
-            for val in sd['state'].values():
-                val['exp_avg'] *= cfg.up.opt_mult
-                val['exp_avg_sq'] *= cfg.up.opt_mult
-            # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
-            #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
-            #    universal pretraining.
-
-        model_engine.optimizer.load_state_dict(sd)
-        # -- reuse the optimizer from the UP training
+    # if cfg.up.reuse_opt:
+    #     sd = opt.state_dict()
+    #
+    #     if cfg.up.opt_mult > 0.0:
+    #         for val in sd['state'].values():
+    #             val['exp_avg'] *= cfg.up.opt_mult
+    #             val['exp_avg_sq'] *= cfg.up.opt_mult
+    #         # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
+    #         #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
+    #         #    universal pretraining.
+    #
+    #     model_engine.optimizer.load_state_dict(sd)
+    #     # -- reuse the optimizer from the UP training
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
