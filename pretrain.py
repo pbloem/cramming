@@ -99,6 +99,7 @@ def pretrain(cfg, setup):
     print('setting learning rate to ', cfg.up.lr)
     for g in opt.param_groups:
         g['lr'] = cfg.up.lr
+        g['initial_lr'] = cfg.up.lr
 
     print(opt)
 
