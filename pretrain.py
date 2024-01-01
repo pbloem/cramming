@@ -196,7 +196,7 @@ def pretrain(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'loss': loss,
-                'learning_rate': sch.get_last_lr()[0],
+                'learning_rate': opt.param_groups[0]['lr'],
                 'gradient_norm': gn,
                 'sample_time': sampletime,
                 'train_time': traintime,
