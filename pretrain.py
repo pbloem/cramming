@@ -96,8 +96,11 @@ def pretrain(cfg, setup):
     # -- `initial_time` is only used for the scheduler (second return value), which we discard.
 
     # Reset the learning rate to the correct UP learning rate.
+    print('setting learning rate to ', cfg.up.lr)
     for g in opt.param_groups:
         g['lr'] = cfg.up.lr
+
+    print(opt)
 
     # opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
 
@@ -183,6 +186,7 @@ def pretrain(cfg, setup):
 
 
         if i % cfg.up.accumulate == 0:  # perform a step
+
             scaler.step(opt)
             scaler.update()
 
