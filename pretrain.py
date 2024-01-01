@@ -100,6 +100,7 @@ def pretrain(cfg, setup):
     for g in opt.param_groups:
         g['lr'] = cfg.up.lr
         g['initial_lr'] = cfg.up.lr
+        g['weight_decay'] = cfg.up.weight_decay
 
     print(opt)
 
