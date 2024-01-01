@@ -103,7 +103,7 @@ def pretrain(cfg, setup):
 
     if cfg.up.warmup > 0:
         warmup = cfg.up.warmup / cfg.up.accumulate
-        sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (cfg.up.warmup / cfg.up.batch_size), 1.0))
+        sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (warmup / cfg.up.batch_size), 1.0))
 
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
     context = cfg.arch.embedding.max_seq_length
@@ -188,7 +188,7 @@ def pretrain(cfg, setup):
 
             opt.zero_grad()
 
-            if warmup > 0:
+            if cfg.up.warmup > 0:
                 sch.step()
 
         traintime = toc()
