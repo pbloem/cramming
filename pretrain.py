@@ -101,6 +101,7 @@ def pretrain(cfg, setup):
         g['lr'] = cfg.up.lr
         g['initial_lr'] = cfg.up.lr
         g['weight_decay'] = cfg.up.weight_decay
+        g['betas'] = cfg.up.betas
 
     print(opt)
 
