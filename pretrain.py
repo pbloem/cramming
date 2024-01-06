@@ -15,7 +15,7 @@ import cramming
 
 from cramming.backend import _load_optimizer
 
-import up, random, wandb
+import up, random, wandb, gc
 
 from up.util import d, sample, gradient_norm, tic, toc
 
@@ -267,6 +267,12 @@ def main_training_process(cfg, setup):
 
         model_engine.optimizer.load_state_dict(sd)
         # -- reuse the optimizer from the UP training
+
+    # -- Force some garbage collecting
+    del sd, opt
+    gc.collect()
+    with torch.no_grad():
+        torch.cuda.empty_cache()
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
