@@ -255,24 +255,25 @@ def main_training_process(cfg, setup):
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
     if cfg.up.reuse_opt:
-        sd = opt.state_dict()
+        with torch.no_grad():
+            sd = opt.state_dict()
 
-        if cfg.up.opt_mult > 0.0:
-            for val in sd['state'].values():
-                val['exp_avg'] *= cfg.up.opt_mult
-                val['exp_avg_sq'] *= cfg.up.opt_mult
-            # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
-            #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
-            #    universal pretraining.
+            if cfg.up.opt_mult > 0.0:
+                for val in sd['state'].values():
+                    val['exp_avg'] *= cfg.up.opt_mult
+                    val['exp_avg_sq'] *= cfg.up.opt_mult
+                # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
+                #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
+                #    universal pretraining.
 
-        model_engine.optimizer.load_state_dict(sd)
-        # -- reuse the optimizer from the UP training
+            model_engine.optimizer.load_state_dict(sd)
+            # -- reuse the optimizer from the UP training
 
     # -- Force some garbage collecting
-    del sd, opt
-    gc.collect()
-    with torch.no_grad():
-        torch.cuda.empty_cache()
+    # del sd, opt
+    # gc.collect()
+    # with torch.no_grad():
+    #     torch.cuda.empty_cache()
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
