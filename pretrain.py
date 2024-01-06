@@ -223,10 +223,11 @@ def pretrain(cfg, setup):
         #     print_batch(output, ascii_only)
 
     opt.zero_grad()
-
-    return model, optimizer_to(opt, 'cpu')
+    optimizer_to(opt, 'cpu')
     # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
     #    leading to OOM.
+
+    return model, opt
 
 def main_training_process(cfg, setup):
     """This function controls the central training loop."""
