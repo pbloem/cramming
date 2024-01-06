@@ -224,7 +224,9 @@ def pretrain(cfg, setup):
 
     opt.zero_grad()
 
-    return model, opt
+    return model, optimizer_to(opt, 'cpu')
+    # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
+    #    leading to OOM.
 
 def main_training_process(cfg, setup):
     """This function controls the central training loop."""
@@ -433,6 +435,27 @@ def communicate_flags(training_allowed, no_recovery_necessary):
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
     cramming.utils.main_launcher(cfg, main_training_process, job_name="pretraining")
+
+
+def optimizer_to(optim, device):
+    """
+    Move optimizer to a given device. From https://github.com/pytorch/pytorch/issues/7415#issuecomment-693424574
+    :param optim:
+    :param device:
+    :return: nothing, modifies the optimizer in place.
+    """
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
 
 if __name__ == "__main__":
     launch()
