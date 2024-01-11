@@ -92,20 +92,21 @@ def pretrain(cfg, setup):
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
-    opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
-    # -- `initial_time` is only used for the scheduler (second return value), which we discard.
+    if cfg.up.reuse_opt:
+        opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
+        # -- `initial_time` is only used for the scheduler (second return value), which we discard.
 
-    # Reset the learning rate to the correct UP learning rate.
-    print('setting learning rate to ', cfg.up.lr)
-    for g in opt.param_groups:
-        g['lr'] = cfg.up.lr
-        g['initial_lr'] = cfg.up.lr
-        g['weight_decay'] = cfg.up.weight_decay
-        g['betas'] = cfg.up.betas
+        # Reset the learning rate to the correct UP learning rate.
+        print('setting learning rate to ', cfg.up.lr)
+        for g in opt.param_groups:
+            g['lr'] = cfg.up.lr
+            g['initial_lr'] = cfg.up.lr
+            g['weight_decay'] = cfg.up.weight_decay
+            g['betas'] = cfg.up.betas
 
-    print(opt)
-
-    # opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
+        print(opt)
+    else:
+        opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
 
     if cfg.up.warmup > 0:
         warmup = cfg.up.warmup / cfg.up.accumulate
