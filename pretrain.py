@@ -215,7 +215,9 @@ def pretrain(cfg, setup):
                 'gradient_norm': gn,
                 'sample_time': sampletime,
                 'train_time': traintime,
-                'pre-training': 1.0
+                'pre-training': 1.0,
+                'ema_gn': gnm,
+                'em_var_gn': gnv,
             })
         bar.set_postfix({'loss': f'{loss:.02}'})
 
