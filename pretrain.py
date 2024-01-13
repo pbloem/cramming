@@ -218,6 +218,7 @@ def pretrain(cfg, setup):
                 'pre-training': 1.0,
                 'ema_gn': gnm,
                 'em_std_gn': math.sqrt(gnv),
+                'clip': 1.0 if gn > lim else 0.0,
             })
         bar.set_postfix({'loss': f'{loss:.02}'})
 
