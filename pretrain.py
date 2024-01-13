@@ -15,7 +15,7 @@ import cramming
 
 from cramming.backend import _load_optimizer
 
-import up, random, wandb, gc
+import up, random, wandb, gc, math
 
 from up.util import d, sample, gradient_norm, tic, toc
 
@@ -125,6 +125,9 @@ def pretrain(cfg, setup):
 
     buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
 
+    # mean and variance of the gradient norm
+    gnm, gnv = 0, 0
+
     # Launch training
     for i in (bar := trange(cfg.up.num_batches)):
 
@@ -184,10 +187,14 @@ def pretrain(cfg, setup):
 
         scaler.scale(loss).backward()
 
+        # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
+        # norm, and if the currnt norm is more than two standard deviations above the mean, we clip it to that value.
         gn = gradient_norm(model)
-        if cfg.up.gc > 0.0:
-            nn.utils.clip_grad_norm_(model.parameters(), cfg.up.gc)
+        lim = gnm + math.sqrt(gnv) * 2.0
+        if i > 10 and gn > lim:
+            nn.utils.clip_grad_norm_(model.parameters(), lim)
 
+        gnm, gnv = em_meanvar(gn, gnm, gnv)
 
         if i % cfg.up.accumulate == 0:  # perform a step
 
@@ -440,6 +447,25 @@ def communicate_flags(training_allowed, no_recovery_necessary):
             return False, True
     else:
         return training_allowed, no_recovery_necessary
+
+def em_meanvar(x, mean=0, variance=0, alpha=0.5):
+    """
+    Computes exp. moving average and variance.
+
+    ```
+    mean, variance = 0, 0
+    for x in values:
+       mean, variance = em_meanvar(x, mean, variance, alpha=0.5)
+    ```
+
+    source: Incremental calculation of weighted mean and variance (Tony Finch, 2009)
+    """
+    diff = x - mean
+    incr = alpha * diff
+    mean = mean + incr
+    variance = (1 - alpha) * (variance + diff * incr)
+
+    return mean, variance
 
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
