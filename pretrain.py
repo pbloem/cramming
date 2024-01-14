@@ -5,6 +5,8 @@ from torch import nn
 import torch.nn.functional as F
 import hydra
 
+import numpy as np
+
 import os
 import time
 import datetime
@@ -466,7 +468,9 @@ def em_meanvar(x, mean=0, variance=0, alpha=0.5):
     diff = x - mean
     incr = alpha * diff
     mean = mean + incr
-    variance = (1 - alpha) * (variance + diff * incr)
+    varraw = (1 - alpha) * (variance + diff * incr)
+
+    variance = varraw if np.isfinite(varraw) else variance
 
     return mean, variance
 
