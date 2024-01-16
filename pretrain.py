@@ -467,12 +467,14 @@ def em_meanvar(x, mean=0, variance=0, alpha=0.5):
     """
     diff = x - mean
     incr = alpha * diff
-    mean = mean + incr
-    varraw = (1 - alpha) * (variance + diff * incr)
 
-    variance = varraw if np.isfinite(varraw) else variance
+    newmean = mean + incr
+    newvar = (1 - alpha) * (variance + diff * incr)
+    if not (np.isfinite(newmean) and np.isfinite(newvar)):
+        # skip x if it causes infs or nans
+        return mean, variance
 
-    return mean, variance
+    return newmean, newvar
 
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
