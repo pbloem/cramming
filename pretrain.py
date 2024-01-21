@@ -78,6 +78,11 @@ def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_prob
 
         return inputs, labels
 
+def set_lr(lr, opt):
+    for g in opt.param_groups:
+        g['lr'] = lr
+        g['initial_lr'] = lr
+
 def pretrain(cfg, setup):
 
     print('Start universal pretraining.')
@@ -111,13 +116,14 @@ def pretrain(cfg, setup):
         opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
 
     if cfg.up.warmup > 0:
-        warmup = cfg.up.warmup / cfg.up.accumulate
-        sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (warmup / cfg.up.batch_size), 1.0))
+        lr = 0.0
+        set_lr(lr, opt)
+        lr_delta = cfg.up.lr / cfg.up.acc_warmup # -- By how much to increase the lr per instance
 
     if cfg.up.acc_warmup > 0:
         acc = 1.0 # the macrobatch size
-        acc_delta = (cfg.up.accumulate - 1) / (cfg.up.acc_warmup / cfg.up.batch_size)
-        # -- By how much to increase the warmup perper batch
+        acc_delta = (cfg.up.accumulate - 1) / cfg.up.acc_warmup
+        # -- By how much to increase the warmup per instance
     else:
         acc = cfg.up.accumulate
     mbatch_size = 0 # size of the current macrobatch
@@ -208,20 +214,20 @@ def pretrain(cfg, setup):
 
         mbatch_size += 1
 
-        if mbatch_size == int(acc):  # perform a step
+        if mbatch_size > int(acc):  # perform a step
 
             scaler.step(opt)
             scaler.update()
 
             opt.zero_grad()
-
-            if cfg.up.warmup > 0:
-                sch.step()
+            set_lr(lr=min(lr, cfg.up.lr), opt=opt)
 
             mbatch_size = 0
 
         if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
-            acc += acc_delta
+            acc += acc_delta * batch.size(0)
+        if cfg.up.warmup > 0:
+            lr  += lr_delta * batch.size(0)
 
         traintime = toc()
 
