@@ -114,6 +114,14 @@ def pretrain(cfg, setup):
         warmup = cfg.up.warmup / cfg.up.accumulate
         sch = torch.optim.lr_scheduler.LambdaLR(opt, lambda i: min(i / (warmup / cfg.up.batch_size), 1.0))
 
+    if cfg.up.acc_warmup > 0:
+        acc = 1.0 # the macrobatch size
+        acc_delta = (cfg.up.accumulate - 1) / (cfg.up.acc_warmup / cfg.up.batch_size)
+        # -- By how much to increase the warmup perper batch
+    else:
+        acc = cfg.up.accumulate
+    mbatch_size = 0 # size of the current macrobatch
+
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
     context = cfg.arch.embedding.max_seq_length
 
@@ -198,7 +206,9 @@ def pretrain(cfg, setup):
 
         gnm, gnv = em_meanvar(gn, gnm, gnv)
 
-        if i % cfg.up.accumulate == 0:  # perform a step
+        mbatch_size += 1
+
+        if mbatch_size == int(acc):  # perform a step
 
             scaler.step(opt)
             scaler.update()
@@ -207,6 +217,11 @@ def pretrain(cfg, setup):
 
             if cfg.up.warmup > 0:
                 sch.step()
+
+            mbatch_size = 0
+
+        if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
+            acc += acc_delta
 
         traintime = toc()
 
@@ -221,6 +236,7 @@ def pretrain(cfg, setup):
                 'ema_gn': gnm,
                 'em_std_gn': math.sqrt(gnv),
                 'clip': 1.0 if gn > lim else 0.0,
+                'acc': acc
             })
         bar.set_postfix({'loss': f'{loss:.02}'})
 
