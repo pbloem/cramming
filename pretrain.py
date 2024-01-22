@@ -118,7 +118,7 @@ def pretrain(cfg, setup):
     if cfg.up.warmup > 0:
         lr = 0.0
         set_lr(lr, opt)
-        lr_delta = cfg.up.lr / cfg.up.acc_warmup # -- By how much to increase the lr per instance
+        lr_delta = cfg.up.lr / cfg.up.warmup # -- By how much to increase the lr per instance
 
     if cfg.up.acc_warmup > 0:
         acc = 1.0 # the macrobatch size
