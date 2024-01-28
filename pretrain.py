@@ -121,8 +121,8 @@ def pretrain(cfg, setup):
         lr_delta = cfg.up.lr / cfg.up.warmup # -- By how much to increase the lr per instance
 
     if cfg.up.cooldown:
-        max = max(0, cfg.up.warmup)
-        cd_delta = cfg.up.lr / (cfg.up.num_batches * cfg.up.batch_size - cfg.up.warmup)
+        mx = max(0, cfg.up.warmup)
+        cd_delta = cfg.up.lr / (cfg.up.num_batches * cfg.up.batch_size - mx)
         # -- By how much to cool down the lr (per instance) after the peak is reached
 
     if cfg.up.acc_warmup > 0:
