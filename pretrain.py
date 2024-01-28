@@ -232,7 +232,7 @@ def pretrain(cfg, setup):
 
         if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
             acc += acc_delta * batch.size(0)
-        if cfg.up.warmup > 0:
+        if seen <= cfg.up.warmup:
             lr  += lr_delta * batch.size(0)
         if cfg.up.cooldown and seen > cfg.up.warmup:
             lr  -= cd_delta * batch.size(0)
