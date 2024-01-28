@@ -148,6 +148,7 @@ def pretrain(cfg, setup):
 
     # mean and variance of the gradient norm
     gnm, gnv = 0, 0
+    seen = 0
 
     # Launch training
     for i in (bar := trange(cfg.up.num_batches)):
@@ -236,6 +237,7 @@ def pretrain(cfg, setup):
         if cfg.up.cooldown and seen > cfg.up.warmup:
             lr  -= cd_delta * batch.size(0)
 
+        seen += batch.size(0)
         traintime = toc()
 
         if cfg.wandb.enabled:
