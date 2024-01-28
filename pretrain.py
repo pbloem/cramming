@@ -122,7 +122,7 @@ def pretrain(cfg, setup):
 
     if cfg.up.cooldown:
         max = max(0, cfg.up.warmup)
-        cooldown_slope = cfg.up.lr / (cfg.up.num_batches * cfg.up.batch_size - cfg.up.warmup)
+        cd_delta = cfg.up.lr / (cfg.up.num_batches * cfg.up.batch_size - cfg.up.warmup)
         # -- By how much to cool down the lr (per instance) after the peak is reached
 
     if cfg.up.acc_warmup > 0:
@@ -233,6 +233,8 @@ def pretrain(cfg, setup):
             acc += acc_delta * batch.size(0)
         if cfg.up.warmup > 0:
             lr  += lr_delta * batch.size(0)
+        if cfg.up.cooldown and seen > cfg.up.warmup:
+            lr  -= cd_delta * batch.size(0)
 
         traintime = toc()
 
