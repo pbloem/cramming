@@ -151,7 +151,7 @@ def pretrain(cfg, setup):
     seen = 0
 
     # Launch training
-    for i in (bar := trange(cfg.up.num_batches)):
+    for i in (bar := trange(cfg.up.num_batches + cfg.up.spinup)):
 
         # Sample a batch on the fly
         with torch.no_grad():
@@ -190,81 +190,81 @@ def pretrain(cfg, setup):
             #    leads to nans and infs and whatnot.
             sampletime = toc()
 
-        # Perform a training step on batches sampled from the buffer
+        if i >= cfg.up.spinup:
+            # Perform a training step on batches sampled from the buffer
+            tic()
+            # Sample a batch from the buffer
+            iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
-        tic()
-        # Sample a batch from the buffer
-        iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+            batch = buffer[iz, :]
+            if torch.cuda.is_available():
+                batch = batch.cuda()
 
-        batch = buffer[iz, :]
-        if torch.cuda.is_available():
-            batch = batch.cuda()
+            # We use the MLM loss to train.
+            inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability)
 
-        # We use the MLM loss to train.
-        inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability)
+            with torch.cuda.amp.autocast():
+                output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+                loss = F.cross_entropy(output.transpose(2, 1), targets)
 
-        with torch.cuda.amp.autocast():
-            output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
-            loss = F.cross_entropy(output.transpose(2, 1), targets)
+            scaler.scale(loss).backward()
 
-        scaler.scale(loss).backward()
+            # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
+            # norm, and if the currnt norm is more than two standard deviations above the mean, we clip it to that value.
+            gn = gradient_norm(model)
+            lim = gnm + math.sqrt(gnv) * 2.0
+            if i > 10 and gn > lim:
+                nn.utils.clip_grad_norm_(model.parameters(), lim)
 
-        # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-        # norm, and if the currnt norm is more than two standard deviations above the mean, we clip it to that value.
-        gn = gradient_norm(model)
-        lim = gnm + math.sqrt(gnv) * 2.0
-        if i > 10 and gn > lim:
-            nn.utils.clip_grad_norm_(model.parameters(), lim)
+            gnm, gnv = em_meanvar(gn, gnm, gnv)
 
-        gnm, gnv = em_meanvar(gn, gnm, gnv)
+            mbatch_size += 1
 
-        mbatch_size += 1
+            if mbatch_size > int(acc):  # perform a step
 
-        if mbatch_size > int(acc):  # perform a step
+                scaler.step(opt)
+                scaler.update()
 
-            scaler.step(opt)
-            scaler.update()
+                opt.zero_grad()
+                set_lr(lr=min(lr, cfg.up.lr), opt=opt)
 
-            opt.zero_grad()
-            set_lr(lr=min(lr, cfg.up.lr), opt=opt)
+                mbatch_size = 0
 
-            mbatch_size = 0
+            if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
+                acc += acc_delta * batch.size(0)
+            if seen <= cfg.up.warmup: # warm up the learning rate
+                lr  += lr_delta * batch.size(0)
+            if seen > cd_start: # cool down the learning rate
+                lr  -= cd_delta * batch.size(0)
 
-        if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
-            acc += acc_delta * batch.size(0)
-        if seen <= cfg.up.warmup: # warm up the learning rate
-            lr  += lr_delta * batch.size(0)
-        if seen > cd_start: # cool down the learning rate
-            lr  -= cd_delta * batch.size(0)
+            seen += batch.size(0)
+            traintime = toc()
 
-        seen += batch.size(0)
-        traintime = toc()
+            if cfg.wandb.enabled:
+                wandb.log({
+                    'loss': loss,
+                    'learning_rate': opt.param_groups[0]['lr'],
+                    'gradient_norm': gn,
+                    'sample_time': sampletime,
+                    'train_time': traintime,
+                    'pre-training': 1.0,
+                    'ema_gn': gnm,
+                    'em_std_gn': math.sqrt(gnv),
+                    'clip': 1.0 if gn > lim else 0.0,
+                    'acc': acc
+                })
+            bar.set_postfix({'loss': f'{loss:.02}'})
 
-        if cfg.wandb.enabled:
-            wandb.log({
-                'loss': loss,
-                'learning_rate': opt.param_groups[0]['lr'],
-                'gradient_norm': gn,
-                'sample_time': sampletime,
-                'train_time': traintime,
-                'pre-training': 1.0,
-                'ema_gn': gnm,
-                'em_std_gn': math.sqrt(gnv),
-                'clip': 1.0 if gn > lim else 0.0,
-                'acc': acc
-            })
-        bar.set_postfix({'loss': f'{loss:.02}'})
-
-        # if cfg.up.print_every > 0 and cfg.up.i % print_every == 0:
-        #     print('target')
-        #     print_batch(batch[:4, :], ascii_only)
-        #
-        #     print('model output')
-        #
-        #     seed = torch.randint(low=0, high=NUM_TOKENS, size=(4, 1), device=d())
-        #     output = sample_sequence(model, seed, context, num_tokens=NUM_TOKENS, length=context,
-        #                              temperature=temperature)
-        #     print_batch(output, ascii_only)
+            # if cfg.up.print_every > 0 and cfg.up.i % print_every == 0:
+            #     print('target')
+            #     print_batch(batch[:4, :], ascii_only)
+            #
+            #     print('model output')
+            #
+            #     seed = torch.randint(low=0, high=NUM_TOKENS, size=(4, 1), device=d())
+            #     output = sample_sequence(model, seed, context, num_tokens=NUM_TOKENS, length=context,
+            #                              temperature=temperature)
+            #     print_batch(output, ascii_only)
 
     opt.zero_grad()
     optimizer_to(opt, 'cpu')

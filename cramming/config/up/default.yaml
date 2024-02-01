@@ -6,9 +6,11 @@ buffer_size: 2000      # Number of instances to keep in the buffer
 temperature: 0.5       # Sampling temperature from model probabilities
 reset_prob: 0.01       # Proportion of the buffer to reset each sample
 num_batches: 40_000    # Number of pre-training batches
+spinup: 5_000          # Number of spinup batches, in which the model isn't trained, but we run the buffer through the
+                       # source model
 batch_size: 40         # Model batch size
 sample_batch_size: 100 # Number of instances in the buffer to pass
-                       # through the model each iterations
+                       # through the model each iteration
 gc: 1.0                # Gradient clipping
 mask_token: 4          # Which masking token to use (4 in the default tokenizer). We hard-code this because the
                        # tokenizer is loaded after the UP. (see backend/utils.py:170)
