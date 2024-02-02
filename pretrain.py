@@ -301,7 +301,7 @@ def main_training_process(cfg, setup):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
-    if cfg.up.reuse_opt:
+    if cfg.up.enabled and cfg.up.reuse_opt:
         with torch.no_grad():
             sd = opt.state_dict()
 
