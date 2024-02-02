@@ -346,6 +346,11 @@ def main_training_process(cfg, setup):
         loss = model_engine.step(device_batch)
         loss_vals.append(loss.detach())
 
+        if cfg.wandb.enabled:
+            wandb.log({
+                'dp-loss': loss_vals[-1],
+            })
+
         # Check stopping criteria
         if check_deadline(wallclock_timer, cfg.budget) or step == cfg.train.steps:
             training_allowed = False
