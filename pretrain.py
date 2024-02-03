@@ -19,7 +19,7 @@ from cramming.backend import _load_optimizer
 
 import up, random, wandb, gc, math
 
-from up.util import d, sample, gradient_norm, tic, toc
+from up.util import d, sample, gradient_norm, tic, toc, copy
 
 from tqdm import trange
 
@@ -90,7 +90,10 @@ def pretrain(cfg, setup):
     scaler = torch.cuda.amp.GradScaler()
 
     # randomness source model
-    source = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+    source_cfg = copy.deepcopy(cfg.arch)
+    source_cfg.num_transformer_layers = cfg.up.source_layers
+
+    source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
 
     # Add one output channel to the source model for the masking.
     i, o = source.decoder.in_features, source.decoder.out_features
