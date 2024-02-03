@@ -17,9 +17,9 @@ import cramming
 
 from cramming.backend import _load_optimizer
 
-import up, random, wandb, gc, math
+import up, random, wandb, gc, math, copy
 
-from up.util import d, sample, gradient_norm, tic, toc, copy
+from up.util import d, sample, gradient_norm, tic, toc
 
 from tqdm import trange
 
