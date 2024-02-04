@@ -217,7 +217,9 @@ def pretrain(cfg, setup):
 
             for i in range(5):
                 print('target', i)
-                print(remap(buffer[i].tolist()))
+                seq = buffer[i].tolist()
+                print(seq)
+                print(print(remap(seq)))
                 print()
 
         if i >= cfg.up.spinup:
@@ -368,7 +370,7 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss_vals[-1],
-            })
+            }, step)
 
         # Check stopping criteria
         if check_deadline(wallclock_timer, cfg.budget) or step == cfg.train.steps:
