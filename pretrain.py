@@ -22,8 +22,24 @@ import up, random, wandb, gc, math, copy
 from up.util import d, sample, gradient_norm, tic, toc
 
 from tqdm import trange
+from collections import Counter
 
 log = logging.getLogger(__name__)
+
+def remap(seq, lim=99):
+    """
+    Remaps a sequence of element by frequency. That is, the most frequent elemnt is mapped to the integer 0, the second
+    most frequent to 1 and so on.
+
+    :param seq:
+    :return:
+    """
+
+    ct = Counter(seq)
+    mapdict = { val:i for i, (val, _) in enumerate(ct.most_common(lim))}
+    map = lambda val : mapdict(val) if val in mapdict else lim
+
+    return [map(s) for s in seq]
 
 def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True, mask_token=4):
         """
@@ -262,16 +278,12 @@ def pretrain(cfg, setup):
                 })
             bar.set_postfix({'loss': f'{loss:.02}'})
 
-            # if cfg.up.print_every > 0 and cfg.up.i % print_every == 0:
-            #     print('target')
-            #     print_batch(batch[:4, :], ascii_only)
-            #
-            #     print('model output')
-            #
-            #     seed = torch.randint(low=0, high=NUM_TOKENS, size=(4, 1), device=d())
-            #     output = sample_sequence(model, seed, context, num_tokens=NUM_TOKENS, length=context,
-            #                              temperature=temperature)
-            #     print_batch(output, ascii_only)
+            if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
+
+                for i in range(5):
+                    print('target', i)
+                    print(remap(batch[i].tolist()))
+                    print()
 
     opt.zero_grad()
     optimizer_to(opt, 'cpu')
