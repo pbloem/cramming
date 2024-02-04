@@ -95,6 +95,10 @@ def pretrain(cfg, setup):
 
     source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
 
+    print('-- source model:')
+    print(source)
+    print()
+
     # Add one output channel to the source model for the masking.
     i, o = source.decoder.in_features, source.decoder.out_features
     source.decoder = nn.Linear(i, o + 1)
