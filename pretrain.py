@@ -37,7 +37,7 @@ def remap(seq, lim=99):
 
     ct = Counter(seq)
     mapdict = { val:i for i, (val, _) in enumerate(ct.most_common(lim))}
-    map = lambda val : mapdict(val) if val in mapdict else lim
+    map = lambda val : mapdict[val] if val in mapdict else lim
 
     return [map(s) for s in seq]
 
