@@ -213,6 +213,13 @@ def pretrain(cfg, setup):
             #    leads to nans and infs and whatnot.
             sampletime = toc()
 
+        if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
+
+            for i in range(5):
+                print('target', i)
+                print(remap(buffer[i].tolist()))
+                print()
+
         if i >= cfg.up.spinup:
             # Perform a training step on batches sampled from the buffer
             tic()
@@ -277,13 +284,6 @@ def pretrain(cfg, setup):
                     'acc': acc
                 })
             bar.set_postfix({'loss': f'{loss:.02}'})
-
-            if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
-
-                for i in range(5):
-                    print('target', i)
-                    print(remap(batch[i].tolist()))
-                    print()
 
     opt.zero_grad()
     optimizer_to(opt, 'cpu')
