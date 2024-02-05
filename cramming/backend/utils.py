@@ -7,7 +7,7 @@ import transformers
 from torch.utils.data import DataLoader
 
 from datasets.distributed import split_dataset_by_node
-
+import requests, time, warnings
 
 def get_num_workers(cfg_impl):
     if cfg_impl.threads > 0:
@@ -306,7 +306,8 @@ class PatchedDataCollatorForLanguageModeling(transformers.DataCollatorForLanguag
         fixed_mask = input_ids.scatter(1, token_mask[:, :reduced_seq_length], -1) == -1
         return input_ids[fixed_mask].view(input_ids.shape[0], -1), labels[fixed_mask].view(input_ids.shape[0], -1)
 
-
+MAX_REC = 20
+SLEEP_TIME = 5
 class InfiniteDataLoader(torch.utils.data.DataLoader):
     """Lazy copy-paste from https://gist.github.com/MFreidank/821cc87b012c53fade03b0c7aba13958."""
 
@@ -319,7 +320,7 @@ class InfiniteDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def __next__(self, rec=0):
         try:
             batch = next(self.dataset_iterator)
         except StopIteration:
@@ -329,4 +330,12 @@ class InfiniteDataLoader(torch.utils.data.DataLoader):
             if hasattr(self.sampler, "set_epoch"):
                 self.sampler.set_epoch(self.epoch_counter)
             batch = next(self.dataset_iterator)
+        except requests.exceptions.HTTPError as e: # HF server error
+            if rec < MAX_REC:
+                warnings.warn(f'Encountered HTTP error. Waiting 5 seconds and trying again {rec}.')
+                time.sleep(SLEEP_TIME)
+                return self.__next__(rec+1)
+            else:
+                raise e
+
         return batch
