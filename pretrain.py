@@ -218,7 +218,7 @@ def pretrain(cfg, setup):
             for i in range(5):
                 print('target', i)
                 seq = buffer[i].tolist()
-                print(print(remap(seq)))
+                print(remap(seq))
                 print()
 
         if i >= cfg.up.spinup:
