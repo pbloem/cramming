@@ -369,8 +369,8 @@ def main_training_process(cfg, setup):
 
         if cfg.wandb.enabled:
             wandb.log({
-                'dp-loss': loss_vals[-1],
-            }, step)
+                'dp-loss': loss.item(),
+            })
 
         # Check stopping criteria
         if check_deadline(wallclock_timer, cfg.budget) or step == cfg.train.steps:
