@@ -218,7 +218,6 @@ def pretrain(cfg, setup):
             for i in range(5):
                 print('target', i)
                 seq = buffer[i].tolist()
-                print(seq)
                 print(print(remap(seq)))
                 print()
 
