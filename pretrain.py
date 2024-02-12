@@ -391,13 +391,10 @@ def estimate_compression(model, data, nsamples, context, batch_size, verbose=Fal
             assert targets.size() == (b,), f'{targets.size()=} should be {(b, )}'
 
             with torch.no_grad():
-                if model is not None and next(model.parameters()).is_cuda:
+                if torch.cuda.is_available():
                     inputs = inputs.cuda()
 
-                if model is not None:
-                    output = model(inputs)
-                else: # -- This is used for easy testing
-                    output = torch.full(size=inputs.size() + (64,), fill_value=1.0)
+                output = model(inputs)
 
                 if model_produces_logits:
                     output = F.log_softmax(output, dim=-1)
