@@ -402,10 +402,6 @@ def estimate_compression(model, data, nsamples, context, batch_size, verbose=Fal
 
             assert output.size()[:2] == (b, context), f'was: {output.size()}, should be {(b, context)}'
 
-            print(output)
-            print(target_indices)
-            print(targets)
-
             lnprobs = output[torch.arange(b, device=d()), target_indices, targets]
             log2probs = lnprobs * LOG2E
             # -- The model produces natural logarithms of probabilities, but we need base-2 logarithms of the
