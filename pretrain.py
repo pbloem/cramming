@@ -315,11 +315,11 @@ def pretrain(cfg, setup):
                             model=model,
                             data=data,
                             nsamples=cfg.up.eval_samples,
-                            context=cfg.arch.max_seq_length,
+                            context=cfg.data.seq_length,
                             batch_size=int(cfg.up.batch_size * 2.0)
                         )
 
-                    wandb.log({f'val-{name}': est})
+                    wandb.log({f'ood/val-{name}': est})
 
 
     opt.zero_grad()
