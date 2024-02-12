@@ -395,7 +395,7 @@ def estimate_compression(model, data, nsamples, context, batch_size, verbose=Fal
                 if torch.cuda.is_available():
                     inputs = inputs.cuda()
 
-                output = model(inputs)
+                output = model(inputs)['outputs'].view(b, context, -1)
 
                 if model_produces_logits:
                     output = F.log_softmax(output, dim=-1)
