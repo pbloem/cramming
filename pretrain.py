@@ -111,6 +111,7 @@ def pretrain(cfg, setup):
 
     # Load the datasets for ood evaluation
     if cfg.up.eval_ood_every > 0:
+        print('Loading data.')
         datasets = {
             'dyck' : torch.tensor(load_data('dyck', char_offset=10), dtype=torch.long),
             'ndfa' : torch.tensor(load_data('ndfa', char_offset=10), dtype=torch.long),
@@ -304,21 +305,21 @@ def pretrain(cfg, setup):
                 })
             bar.set_postfix({'loss': f'{loss:.02}'})
 
-        if (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
+            if cfg.up.eval_ood_every > 0 and (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
 
-            for name, data in datasets.items():
-                print(f'evaluating {name}')
+                for name, data in datasets.items():
+                    print(f'evaluating {name}')
 
-                with torch.no_grad():
-                    est = estimate_compression(
-                        model=model,
-                        data=data,
-                        nsamples=cfg.up.eval_samples,
-                        context=cfg.arch.max_seq_length,
-                        batch_size=int(cfg.up.batch_size * 2.0)
-                    )
+                    with torch.no_grad():
+                        est = estimate_compression(
+                            model=model,
+                            data=data,
+                            nsamples=cfg.up.eval_samples,
+                            context=cfg.arch.max_seq_length,
+                            batch_size=int(cfg.up.batch_size * 2.0)
+                        )
 
-                wandb.log({f'val-{name}': est})
+                    wandb.log({f'val-{name}': est})
 
 
     opt.zero_grad()
