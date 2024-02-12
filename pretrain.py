@@ -17,14 +17,20 @@ import cramming
 
 from cramming.backend import _load_optimizer
 
-import up, random, wandb, gc, math, copy
+import up, random, wandb, gc, math, copy, tqdm
 
 from up.util import d, sample, gradient_norm, tic, toc
+from up.data import load_data, cas
 
 from tqdm import trange
 from collections import Counter
 
+# Logs
 log = logging.getLogger(__name__)
+
+# Different logs
+LOG2E = math.log2(math.e)
+LOGE2 = math.log(2.0)
 
 def remap(seq, lim=99):
     """
@@ -102,6 +108,18 @@ def set_lr(lr, opt):
 def pretrain(cfg, setup):
 
     print('Start universal pretraining.')
+
+    # Load the datasets for ood evaluation
+    if cfg.up.eval_ood_every > 0:
+        datasets = {
+            'dyck' : torch.tensor(load_data('dyck', char_offset=10), dtype=torch.long),
+            'ndfa' : torch.tensor(load_data('ndfa', char_offset=10), dtype=torch.long),
+            'toy'  : torch.tensor(load_data('toy', char_offset=10),  dtype=torch.long),
+            'bits' : torch.tensor(load_data('bits', char_offset=10), dtype=torch.long),
+            'wp'   : torch.tensor(load_data('wp-val', char_offset=10), dtype=torch.long)
+        }
+        # -- We offset the indices by 10 so that the tokens used don't overlap with the special tokens (in particular the
+        #    masking tokens). Other than that, it doesn't really matter which tokens are used.
 
     scaler = torch.cuda.amp.GradScaler()
 
@@ -241,7 +259,7 @@ def pretrain(cfg, setup):
             scaler.scale(loss).backward()
 
             # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-            # norm, and if the currnt norm is more than two standard deviations above the mean, we clip it to that value.
+            # norm, and if the current norm is more than two standard deviations above the mean, we clip it to that value.
             gn = gradient_norm(model)
             lim = gnm + math.sqrt(gnv) * 2.0
             if i > 10 and gn > lim:
@@ -286,12 +304,115 @@ def pretrain(cfg, setup):
                 })
             bar.set_postfix({'loss': f'{loss:.02}'})
 
+        if (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
+
+            for name, data in datasets.items():
+                print(f'evaluating {name}')
+
+                with torch.no_grad():
+                    est = estimate_compression(
+                        model=model,
+                        data=data,
+                        nsamples=cfg.up.eval_samples,
+                        context=cfg.arch.max_seq_length,
+                        batch_size=int(cfg.up.batch_size * 2.0)
+                    )
+
+                wandb.log({f'val-{name}': est})
+
+
     opt.zero_grad()
     optimizer_to(opt, 'cpu')
     # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
     #    leading to OOM.
 
     return model, opt
+
+
+def estimate_compression(model, data, nsamples, context, batch_size, verbose=False, model_produces_logits=True, mask_token=4):
+    """
+    Estimates the averages bits/token for the masked out tokens in a sequence.
+
+    :param model: An MLM style sequence-to-sequence model that takes as input a (sub) sequence of integer.
+    :param data: A singe list of integers representing the data
+    :return: The result of the computation in "bits per byte". That is, how many bits does the compressed representation
+    spend on each byte (=ASCII character) of the raw data.
+    """
+
+    bits, tot = 0.0, 0
+    batch = []
+
+    # indices of target characters in the data
+    gtargets = random.sample(range(data.size(0)), k=nsamples)
+
+    # Buffer, every time it fills up, we run it through the model
+    # -- After we pass the batch through the model, we look at only the probabilities predicted for the final token
+    #    (for which the input is masked).
+    target_indices = []
+
+    for i, current in enumerate(tqdm.tqdm(gtargets) if verbose else gtargets):
+        # current is the character to be predicted
+
+        fr = max(0, current - context + 1)
+        to = current + 1
+
+        instance = data[fr:to].to(torch.long) # the subsequence of the data to add to the batch
+        # -- slice out an instance of size context + 1 (or shorter at the start of the data)
+
+        target_indices.append(instance.size(0) - 1) # index of the last element of the context
+
+        if instance.size(0) < context:
+            # the index in the output tensor of the character we want to predict
+            # -- It's context + 1, because we clip off the last token as a target
+
+            pad = torch.full(fill_value=mask_token, size=(context - instance.size(0),), dtype=torch.long)
+            instance = torch.cat([instance, pad], dim=0)
+            # -- the first tokens don't have enough tokens preceding them, so we pad them to the right size.
+
+            assert instance.size(0) == context # all instances should be `context` long fater padding
+
+        if torch.cuda.is_available():
+            instance = instance.cuda()
+
+        batch.append(instance[None, :])
+        # -- We add a singleton dimension to concatenate along later.
+
+        if len(batch) == batch_size or i == len(gtargets) - 1:
+            # batch is full, or we are at the last instance, run it through the model
+
+            b = len(batch)
+
+            inputs = torch.cat(batch, dim=0)
+
+            # mask out the last token
+            targets = inputs[torch.arange(b, device=d()), target_indices]
+            inputs[torch.arange(b, device=d()), target_indices] = mask_token
+
+            assert targets.size() == (b,), f'{targets.size()=} should be {(b, )}'
+
+            with torch.no_grad():
+                if model is not None and next(model.parameters()).is_cuda:
+                    inputs = inputs.cuda()
+
+                if model is not None:
+                    output = model(inputs)
+                else: # -- This is used for easy testing
+                    output = torch.full(size=inputs.size() + (64,), fill_value=1.0)
+
+                if model_produces_logits:
+                    output = F.log_softmax(output, dim=-1)
+
+            assert output.size()[:2] == (b, context), f'was: {output.size()}, should be {(b, context)}'
+
+            lnprobs = output[torch.arange(b, device=d()), target_indices, targets]
+            log2probs = lnprobs * LOG2E
+            # -- The model produces natural logarithms of probabilities, but we need base-2 logarithms of the
+            #    probabilities, since these give us bits.
+
+            bits += - log2probs.sum() # Add the bits for each character (the negative log_2 probabilties) to the running total
+            batch, target_indices = [], []  # clear the buffer
+
+    return bits.item() / nsamples # total nr of bits used
 
 def main_training_process(cfg, setup):
     """This function controls the central training loop."""
@@ -558,4 +679,6 @@ def optimizer_to(optim, device):
                         subparam._grad.data = subparam._grad.data.to(device)
 
 if __name__ == "__main__":
-    launch()
+
+    data = torch.arange(16)
+    print(estimate_compression(model=None, data=data, batch_size=5, nsamples=15, context=7))

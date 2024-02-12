@@ -26,3 +26,5 @@ weight_decay: 0.0      # Weight decay
 betas: [0.9, 0.999]    # Adam beta values (these are the torch defaults, cramming phase uses (0.9, 0.98)
 reuse_opt: False       # Whether to reuse the optimizer used in up for the data-based pretraining
 opt_mult: 1.0          # A multiplier for the up optimizer state, before it's applied to the fine-tuning
+eval_ood_every: -1     # How often to run an evaluation on the OOD datasets during u-pretraining
+eval_samples: 10_000   # How many samples to evaluate on for the OOD datasets
