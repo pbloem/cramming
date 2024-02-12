@@ -680,6 +680,4 @@ def optimizer_to(optim, device):
                         subparam._grad.data = subparam._grad.data.to(device)
 
 if __name__ == "__main__":
-
-    data = torch.arange(16)
-    print(estimate_compression(model=None, data=data, batch_size=5, nsamples=15, context=7))
+    launch()
