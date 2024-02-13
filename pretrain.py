@@ -113,11 +113,12 @@ def pretrain(cfg, setup):
     if cfg.up.eval_ood_every > 0:
         print('Loading data.')
         datasets = {
-            'dyck' : torch.tensor(load_data('dyck', char_offset=10), dtype=torch.long),
-            'ndfa' : torch.tensor(load_data('ndfa', char_offset=10), dtype=torch.long),
-            'toy'  : torch.tensor(load_data('toy', char_offset=10),  dtype=torch.long),
-            'bits' : torch.tensor(load_data('bits', char_offset=10), dtype=torch.long),
-            'wp'   : torch.tensor(load_data('wp-val', char_offset=10), dtype=torch.long)
+            'dyck'  : torch.tensor(load_data('dyck', char_offset=10), dtype=torch.long),
+            'ndfa'  : torch.tensor(load_data('ndfa', char_offset=10), dtype=torch.long),
+            'toy'   : torch.tensor(load_data('toy', char_offset=10),  dtype=torch.long),
+            'bits'  : torch.tensor(load_data('bits', char_offset=10), dtype=torch.long),
+            'champ' : torch.tensor(load_data('champ', char_offset=10), dtype=torch.long),
+            'wp'    : torch.tensor(load_data('wp-val', char_offset=10), dtype=torch.long)
         }
         # -- We offset the indices by 10 so that the tokens used don't overlap with the special tokens (in particular the
         #    masking tokens). Other than that, it doesn't really matter which tokens are used.
@@ -320,7 +321,6 @@ def pretrain(cfg, setup):
                         )
 
                     wandb.log({f'ood/val-{name}': est})
-
 
     opt.zero_grad()
     optimizer_to(opt, 'cpu')
