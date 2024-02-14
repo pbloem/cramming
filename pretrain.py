@@ -19,7 +19,7 @@ from cramming.backend import _load_optimizer
 
 import up, random, wandb, gc, math, copy, tqdm
 
-from up.util import d, sample, gradient_norm, tic, toc
+from up.util import d, sample, gradient_norm, tic, toc, fc
 from up.data import load_data, cas
 
 from tqdm import trange
@@ -201,7 +201,14 @@ def pretrain(cfg, setup):
 
             tic()
             # Re-initialize the parameters of source (i.e. sample a random source)
-            up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+            if cfg.up.init_mode == 'default':
+                up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+            elif cfg.up.init_mode == 'plain':
+                up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+            elif cfg.up.init_mode == 'minimal':
+                up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+            else:
+                raise
 
             # Slice a random selection of rows from the buffer (without replacement)
             iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
