@@ -19,7 +19,7 @@ from cramming.backend import _load_optimizer
 
 import up, random, wandb, gc, math, copy, tqdm
 
-from up.util import d, sample, gradient_norm, tic, toc, fc
+from up.util import d, sample, gradient_norm, tic, toc
 from up.data import load_data, cas
 
 from tqdm import trange
