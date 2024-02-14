@@ -292,7 +292,7 @@ def pretrain(cfg, setup):
                 acc += acc_delta * batch.size(0)
             if seen <= cfg.up.warmup: # warm up the learning rate
                 lr  += lr_delta * batch.size(0)
-            if seen > cd_start: # cool down the learning rate
+            if cfg.up.cooldown > 0 and seen > cd_start: # cool down the learning rate
                 lr  -= cd_delta * batch.size(0)
 
             seen += batch.size(0)
