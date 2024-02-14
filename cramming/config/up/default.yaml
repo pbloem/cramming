@@ -1,5 +1,6 @@
 enabled: False         # Whether to use UP.
 dp: False              # Data parallelism
+init_mode: default     # Weight initialization algorithm for the source model
 init_mult_max: 5.0     # Weight multiplier
 mask_prob_max: 0.7     # Weight masking probability
 buffer_size: 2000      # Number of instances to keep in the buffer
