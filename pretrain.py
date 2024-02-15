@@ -201,11 +201,11 @@ def pretrain(cfg, setup):
     for i in (bar := trange(cfg.up.num_batches + cfg.up.spinup)):
 
         # Sample a batch on the fly
-        with torch.no_grad():
+        with (torch.no_grad()):
 
-            tic()
 
             if cfg.up.source_mode == 'nn':
+                tic()
 
                 # Re-initialize the parameters of source (i.e. sample a random source)
                 if cfg.up.init_mode == 'default':
@@ -256,7 +256,14 @@ def pretrain(cfg, setup):
                 print()
 
         if i >= cfg.up.spinup:
-            tic()
+
+
+
+            if cfg.up.source_mode == 'aut':
+                tic()
+                batch = [up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size) for _ in range(cfg.up.batch_size)]
+                batch = torch.tensor(batch)
+                sampletime = toc()
 
             if cfg.up.source_mode == 'nn':
                 # Perform a training step on batches sampled from the buffer
@@ -265,9 +272,7 @@ def pretrain(cfg, setup):
 
                 batch = buffer[iz, :]
 
-            elif cfg.up.source_mode == 'aut':
-                batch = [up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size) for _ in range(cfg.up.batch_size)]
-                batch = torch.tensor(batch)
+            tic()
 
             if torch.cuda.is_available():
                 batch = batch.cuda()
