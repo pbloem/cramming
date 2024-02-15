@@ -251,7 +251,7 @@ def pretrain(cfg, setup):
 
             for i in range(5):
                 print('target', i)
-                seq = buffer[i].tolist() if cfg.up.source_mode else up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
+                seq = buffer[i].tolist() if cfg.up.source_mode == 'nn' else up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
                 print(remap(seq))
                 print()
 
