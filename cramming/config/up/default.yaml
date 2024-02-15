@@ -6,6 +6,7 @@ mask_prob_max: 0.7     # Weight masking probability
 buffer_size: 2000      # Number of instances to keep in the buffer
 temperature: 0.5       # Sampling temperature from model probabilities
 reset_prob: 0.01       # Proportion of the buffer to reset each sample
+source_mode: nn        # How to generate the up data: nn (use a neural network) or aut (a random NDA)
 num_batches: 40_000    # Number of pre-training batches
 spinup: 5_000          # Number of spinup batches, in which the model isn't trained, but we run the buffer through the
                        # source model

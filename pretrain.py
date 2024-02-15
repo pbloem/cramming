@@ -125,19 +125,20 @@ def pretrain(cfg, setup):
 
     scaler = torch.cuda.amp.GradScaler()
 
-    # randomness source model
-    source_cfg = copy.deepcopy(cfg.arch)
-    source_cfg.num_transformer_layers = cfg.up.source_layers
+    if cfg.up.source_mode == 'nn':
+        # randomness source model
+        source_cfg = copy.deepcopy(cfg.arch)
+        source_cfg.num_transformer_layers = cfg.up.source_layers
 
-    source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
+        source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
 
-    print('-- source model:')
-    print(source)
-    print()
+        print('-- source model:')
+        print(source)
+        print()
 
-    # Add one output channel to the source model for the masking.
-    i, o = source.decoder.in_features, source.decoder.out_features
-    source.decoder = nn.Linear(i, o + 1)
+        # Add one output channel to the source model for the masking.
+        i, o = source.decoder.in_features, source.decoder.out_features
+        source.decoder = nn.Linear(i, o + 1)
 
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
@@ -181,13 +182,16 @@ def pretrain(cfg, setup):
 
     if torch.cuda.is_available():
         model.cuda()
-        source.cuda()
+        if cfg.up.source_mode == 'nn':
+            source.cuda()
 
     if cfg.up.dp:
         model = torch.nn.DataParallel(model)
-        source = torch.nn.DataParallel(model)
+        if cfg.up.source_mode == 'nn':
+            source = torch.nn.DataParallel(model)
 
-    buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
+    if cfg.up.source_mode == 'nn':
+        buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
 
     # mean and variance of the gradient norm
     gnm, gnv = 0, 0
@@ -200,61 +204,71 @@ def pretrain(cfg, setup):
         with torch.no_grad():
 
             tic()
-            # Re-initialize the parameters of source (i.e. sample a random source)
-            if cfg.up.init_mode == 'default':
-                up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
-            elif cfg.up.init_mode == 'plain':
-                up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
-            elif cfg.up.init_mode == 'minimal':
-                up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
-            else:
-                raise
 
-            # Slice a random selection of rows from the buffer (without replacement)
-            iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
-            z = buffer[iz, :]
+            if cfg.up.source_mode == 'nn':
 
-            # Replace some random rows with uniform random characters (reset)
-            rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
-            mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
+                # Re-initialize the parameters of source (i.e. sample a random source)
+                if cfg.up.init_mode == 'default':
+                    up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                elif cfg.up.init_mode == 'plain':
+                    up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                elif cfg.up.init_mode == 'minimal':
+                    up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                else:
+                    raise
 
-            uniform = torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
-            z[mask] = uniform[mask]
+                # Slice a random selection of rows from the buffer (without replacement)
+                iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
+                z = buffer[iz, :]
 
-            # Pass it through the source
-            # -- In non-sequential mode, pass the input through the model, and then mix the input and output together.
-            #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
-            #    probability that the model retains some of the complexity of the input, while also allowing the option
-            #    that the input is entirely ignored.
+                # Replace some random rows with uniform random characters (reset)
+                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
+                mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
 
-            output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
-            chars, mask = output[:, :, :-1], output[:, :, -1]
+                uniform = torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+                z[mask] = uniform[mask]
 
-            chars = sample(chars, temperature=cfg.up.temperature)
-            mask = torch.sigmoid(mask).to(torch.bool)
+                # Pass it through the source
+                # -- In non-sequential mode, pass the input through the model, and then mix the input and output together.
+                #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
+                #    probability that the model retains some of the complexity of the input, while also allowing the option
+                #    that the input is entirely ignored.
 
-            z[mask] = chars[mask] # replace the masked part of the input by the output samples
-            buffer[iz, :] = z     # replace the inputs in the buffer
+                output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
+                chars, mask = output[:, :, :-1], output[:, :, -1]
 
-            # -- Note that the samples are in full precision. These often require large weights, so mixed precision
-            #    leads to nans and infs and whatnot.
-            sampletime = toc()
+                chars = sample(chars, temperature=cfg.up.temperature)
+                mask = torch.sigmoid(mask).to(torch.bool)
+
+                z[mask] = chars[mask] # replace the masked part of the input by the output samples
+                buffer[iz, :] = z     # replace the inputs in the buffer
+
+                # -- Note that the samples are in full precision. These often require large weights, so mixed precision
+                #    leads to nans and infs and whatnot.
+                sampletime = toc()
 
         if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
 
             for i in range(5):
                 print('target', i)
-                seq = buffer[i].tolist()
+                seq = buffer[i].tolist() if cfg.up.source_mode else up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
                 print(remap(seq))
                 print()
 
         if i >= cfg.up.spinup:
-            # Perform a training step on batches sampled from the buffer
             tic()
-            # Sample a batch from the buffer
-            iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
-            batch = buffer[iz, :]
+            if cfg.up.source_mode == 'nn':
+                # Perform a training step on batches sampled from the buffer
+                # Sample a batch from the buffer
+                iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+
+                batch = buffer[iz, :]
+
+            elif cfg.up.source_mode == 'aut':
+                batch = [up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size) for _ in range(cfg.up.batch_size)]
+                batch = torch.tensor(batch)
+
             if torch.cuda.is_available():
                 batch = batch.cuda()
 
