@@ -47,7 +47,9 @@ def remap(seq, lim=99):
 
     return [map(s) for s in seq]
 
-def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True, mask_token=4):
+def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True,
+               mask_token=4,
+            ):
         """
         -- Modified from backed/utils to remove the OO/dataloader parts.
 
@@ -67,6 +69,7 @@ def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_prob
         masked_indices = torch.zeros_like(inputs, dtype=torch.bool)
         masked_indices.scatter_(1, mask_locations, 1)
         labels[~masked_indices] = -100  # We only compute loss on masked tokens
+
         # -- Note that -100 is the default ignore_index in the CrossEntropyLoss
         #    https: // pytorch.org / docs / stable / generated / torch.nn.CrossEntropyLoss.html
 
@@ -257,8 +260,6 @@ def pretrain(cfg, setup):
 
         if i >= cfg.up.spinup:
 
-
-
             if cfg.up.source_mode == 'aut':
                 tic()
                 batch = [up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size) for _ in range(cfg.up.batch_size)]
@@ -278,7 +279,8 @@ def pretrain(cfg, setup):
                 batch = batch.cuda()
 
             # We use the MLM loss to train.
-            inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability)
+            inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
+                                                use_80_20_rule=cfg.up.use_80_20_rule)
 
             with torch.cuda.amp.autocast():
                 output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)

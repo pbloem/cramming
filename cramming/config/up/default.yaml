@@ -30,3 +30,4 @@ reuse_opt: False       # Whether to reuse the optimizer used in up for the data-
 opt_mult: 1.0          # A multiplier for the up optimizer state, before it's applied to the fine-tuning
 eval_ood_every: -1     # How often to run an evaluation on the OOD datasets during u-pretraining
 eval_samples: 10_000   # How many samples to evaluate on for the OOD datasets
+use_80_20_rule: True   # Replace 20% of the masked tokens with thre true tokens or a corrupted token
