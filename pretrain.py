@@ -260,7 +260,7 @@ def pretrain(cfg, setup):
                     seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
                 elif cfg.up.source_mode == 'nnsimple':
                     if batch is not None:
-                        seq = batch.tolist()
+                        seq = batch[i].tolist()
                     else:
                         seq = None
                 else:
