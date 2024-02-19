@@ -32,21 +32,6 @@ log = logging.getLogger(__name__)
 LOG2E = math.log2(math.e)
 LOGE2 = math.log(2.0)
 
-def remap(seq, lim=99):
-    """
-    Remaps a sequence of element by frequency. That is, the most frequent elemnt is mapped to the integer 0, the second
-    most frequent to 1 and so on.
-
-    :param seq:
-    :return:
-    """
-
-    ct = Counter(seq)
-    mapdict = { val:i for i, (val, _) in enumerate(ct.most_common(lim))}
-    map = lambda val : mapdict[val] if val in mapdict else lim
-
-    return [map(s) for s in seq]
-
 def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True,
                mask_token=4,
             ):
@@ -143,6 +128,11 @@ def pretrain(cfg, setup):
         i, o = source.decoder.in_features, source.decoder.out_features
         source.decoder = nn.Linear(i, o + 1)
 
+    if cfg.up.source_mode == 'nnsimple':
+        # Initialize the source model
+        source = up.GTransformer(emb=cfg.arch.embedding.embedding_dim, heads=cfg.arch.num_attention_heads, depth=cfg.up.source_layers, seq_length=cfg.data.seq_length, num_tokens=num_tokens,
+                nl='relu', mask_channel=True)
+
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
@@ -185,12 +175,12 @@ def pretrain(cfg, setup):
 
     if torch.cuda.is_available():
         model.cuda()
-        if cfg.up.source_mode == 'nn':
+        if cfg.up.source_mode == 'nn' or cfg.up.source_mode == 'nnsimple':
             source.cuda()
 
     if cfg.up.dp:
         model = torch.nn.DataParallel(model)
-        if cfg.up.source_mode == 'nn':
+        if cfg.up.source_mode == 'nn' or cfg.up.source_mode == 'nnsimple':
             source = torch.nn.DataParallel(model)
 
     if cfg.up.source_mode == 'nn':
@@ -254,8 +244,15 @@ def pretrain(cfg, setup):
 
             for i in range(5):
                 print('target', i)
-                seq = buffer[i].tolist() if cfg.up.source_mode == 'nn' else up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
-                print(remap(seq))
+
+                if cfg.up.source_mode == 'nn':
+                    seq = buffer[i].tolist()
+                elif cfg.up.source_mode == 'aut':
+                    seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
+                elif cfg.up.source_mode == 'nn':
+                    seq = batch.tolist()
+
+                print(up.util.remap(seq))
                 print()
 
         if i >= cfg.up.spinup:
@@ -266,12 +263,25 @@ def pretrain(cfg, setup):
                 batch = torch.tensor(batch)
                 sampletime = toc()
 
-            if cfg.up.source_mode == 'nn':
+            elif cfg.up.source_mode == 'nn':
                 # Perform a training step on batches sampled from the buffer
                 # Sample a batch from the buffer
                 iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
                 batch = buffer[iz, :]
+
+            if cfg.up.source_mode == 'nnsimple':
+
+                # We pick a weight multiplier uniformly in log-space
+                logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
+                up.weights_init_minimal(source, math.exp(logwm))
+
+                input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
+
+                chars, _ = source(input)
+                # -- we ignore the mask output
+
+                batch = sample(chars, temperature=cfg.up.temperature)
 
             tic()
 
