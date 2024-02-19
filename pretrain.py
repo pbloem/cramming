@@ -296,9 +296,11 @@ def pretrain(cfg, setup):
 
                 input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
 
-                chars = source(input)
+                for _ in range(cfg.up.iterations):
+                    chars = source(input)
+                    batch = sample(chars, temperature=cfg.up.temperature)
 
-                batch = sample(chars, temperature=cfg.up.temperature)
+                    input = chars
 
                 sampletime = toc()
 
