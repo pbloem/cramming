@@ -140,7 +140,8 @@ def pretrain(cfg, setup):
             depth=cfg.up.source_layers,
             seq_length=cfg.data.seq_length,
             num_tokens=num_tokens,
-            nl='relu', mask_channel=True)
+            nl=up.util.nl(cfg.up.nonlinearity),
+            mask_channel=True)
 
     if cfg.up.reuse_opt:
         opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
