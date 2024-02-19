@@ -113,6 +113,10 @@ def pretrain(cfg, setup):
 
     scaler = torch.cuda.amp.GradScaler()
 
+    # pre-training target model
+    model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+    num_tokens = model.encoder.embedding.word_embedding.num_embeddings
+
     if cfg.up.source_mode == 'nn':
         # randomness source model
         source_cfg = copy.deepcopy(cfg.arch)
@@ -130,11 +134,13 @@ def pretrain(cfg, setup):
 
     if cfg.up.source_mode == 'nnsimple':
         # Initialize the source model
-        source = up.GTransformer(emb=cfg.arch.embedding.embedding_dim, heads=cfg.arch.num_attention_heads, depth=cfg.up.source_layers, seq_length=cfg.data.seq_length, num_tokens=num_tokens,
-                nl='relu', mask_channel=True)
-
-    # pre-training target model
-    model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+        source = up.GTransformer(
+            emb=cfg.arch.embedding.embedding_dim,
+            heads=cfg.arch.attention.num_attention_heads,
+            depth=cfg.up.source_layers,
+            seq_length=cfg.data.seq_length,
+            num_tokens=num_tokens,
+            nl='relu', mask_channel=True)
 
     if cfg.up.reuse_opt:
         opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
@@ -170,7 +176,6 @@ def pretrain(cfg, setup):
         acc = cfg.up.accumulate
     mbatch_size = 0 # size of the current macrobatch
 
-    num_tokens = model.encoder.embedding.word_embedding.num_embeddings
     context = cfg.arch.embedding.max_seq_length
 
     if torch.cuda.is_available():
