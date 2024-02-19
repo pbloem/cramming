@@ -141,7 +141,11 @@ def pretrain(cfg, setup):
             seq_length=cfg.data.seq_length,
             num_tokens=num_tokens,
             nl=up.util.nl(cfg.up.nonlinearity),
-            mask_channel=True)
+            mask_channel=False)
+
+        print('-- source model:')
+        print(source)
+        print()
 
     if cfg.up.reuse_opt:
         opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
@@ -291,8 +295,7 @@ def pretrain(cfg, setup):
 
                 input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
 
-                chars, _ = source(input)
-                # -- we ignore the mask output
+                chars = source(input)
 
                 batch = sample(chars, temperature=cfg.up.temperature)
 
