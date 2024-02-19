@@ -254,8 +254,10 @@ def pretrain(cfg, setup):
                     seq = buffer[i].tolist()
                 elif cfg.up.source_mode == 'aut':
                     seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
-                elif cfg.up.source_mode == 'nn':
+                elif cfg.up.source_mode == 'nnsimple':
                     seq = batch.tolist()
+                else:
+                    raise
 
                 print(up.util.remap(seq))
                 print()
