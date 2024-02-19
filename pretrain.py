@@ -288,6 +288,7 @@ def pretrain(cfg, setup):
                 batch = buffer[iz, :]
 
             if cfg.up.source_mode == 'nnsimple':
+                tic()
 
                 # We pick a weight multiplier uniformly in log-space
                 logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
@@ -298,6 +299,8 @@ def pretrain(cfg, setup):
                 chars = source(input)
 
                 batch = sample(chars, temperature=cfg.up.temperature)
+
+                sampletime = toc()
 
             tic()
 
