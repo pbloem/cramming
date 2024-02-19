@@ -194,6 +194,7 @@ def pretrain(cfg, setup):
     # mean and variance of the gradient norm
     gnm, gnv = 0, 0
     seen = 0
+    batch = None
 
     # Launch training
     for i in (bar := trange(cfg.up.num_batches + cfg.up.spinup)):
@@ -255,12 +256,16 @@ def pretrain(cfg, setup):
                 elif cfg.up.source_mode == 'aut':
                     seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
                 elif cfg.up.source_mode == 'nnsimple':
-                    seq = batch.tolist()
+                    if batch is not None:
+                        seq = batch.tolist()
+                    else:
+                        seq = None
                 else:
                     raise
 
-                print(up.util.remap(seq))
-                print()
+                if seq is not None:
+                    print(up.util.remap(seq))
+                    print()
 
         if i >= cfg.up.spinup:
 
