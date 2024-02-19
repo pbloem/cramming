@@ -187,7 +187,7 @@ def pretrain(cfg, setup):
     if cfg.up.dp:
         model = torch.nn.DataParallel(model)
         if cfg.up.source_mode == 'nn' or cfg.up.source_mode == 'nnsimple':
-            source = torch.nn.DataParallel(model)
+            source = torch.nn.DataParallel(source)
 
     if cfg.up.source_mode == 'nn':
         buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
@@ -250,8 +250,6 @@ def pretrain(cfg, setup):
         if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
 
             for i in range(5):
-                print('target', i)
-
                 if cfg.up.source_mode == 'nn':
                     seq = buffer[i].tolist()
                 elif cfg.up.source_mode == 'aut':
@@ -265,6 +263,8 @@ def pretrain(cfg, setup):
                     raise
 
                 if seq is not None:
+                    print('target', i)
+
                     print(up.util.remap(seq))
                     print()
 
