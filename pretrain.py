@@ -119,8 +119,8 @@ def pretrain(cfg, setup):
 
     if cfg.up.source_mode == 'nn':
         # randomness source model
-        source_cfg = copy.deepcopy(cfg.arch)
-        source_cfg.num_transformer_layers = cfg.up.source_layers
+        # source_cfg = copy.deepcopy(cfg.arch)
+        # source_cfg.num_transformer_layers = cfg.up.source_layers
 
         # source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
         source = up.GTransformer(
@@ -250,7 +250,7 @@ def pretrain(cfg, setup):
                 # output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
                 # chars, mask = output[:, :, :-1], output[:, :, -1]
 
-                chars = sample(output, temperature=cfg.up.temperature)
+                z = sample(output, temperature=cfg.up.temperature)
                 # mask = torch.sigmoid(mask).to(torch.bool)
                 #
                 # z[mask] = chars[mask] # replace the masked part of the input by the output samples
