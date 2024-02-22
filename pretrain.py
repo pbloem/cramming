@@ -129,8 +129,8 @@ def pretrain(cfg, setup):
         print()
 
         # Add one output channel to the source model for the masking.
-        i, o = source.decoder.in_features, source.decoder.out_features
-        source.decoder = nn.Linear(i, o + 1)
+        # i, o = source.decoder.in_features, source.decoder.out_features
+        # source.decoder = nn.Linear(i, o + 1)
 
     if cfg.up.source_mode == 'nnsimple':
         # Initialize the source model
@@ -207,7 +207,7 @@ def pretrain(cfg, setup):
         # Sample a batch on the fly
         with (torch.no_grad()):
 
-
+            # Process the buffer
             if cfg.up.source_mode == 'nn':
                 tic()
 
@@ -217,7 +217,7 @@ def pretrain(cfg, setup):
                 elif cfg.up.init_mode == 'plain':
                     up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
                 elif cfg.up.init_mode == 'minimal':
-                    up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                    up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max)
                 else:
                     raise
 
@@ -237,14 +237,13 @@ def pretrain(cfg, setup):
                 #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
                 #    probability that the model retains some of the complexity of the input, while also allowing the option
                 #    that the input is entirely ignored.
-
                 output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
-                chars, mask = output[:, :, :-1], output[:, :, -1]
+                # chars, mask = output[:, :, :-1], output[:, :, -1]
 
-                chars = sample(chars, temperature=cfg.up.temperature)
-                mask = torch.sigmoid(mask).to(torch.bool)
-
-                z[mask] = chars[mask] # replace the masked part of the input by the output samples
+                chars = sample(output, temperature=cfg.up.temperature)
+                # mask = torch.sigmoid(mask).to(torch.bool)
+                #
+                # z[mask] = chars[mask] # replace the masked part of the input by the output samples
                 buffer[iz, :] = z     # replace the inputs in the buffer
 
                 # -- Note that the samples are in full precision. These often require large weights, so mixed precision
@@ -291,8 +290,8 @@ def pretrain(cfg, setup):
                 tic()
 
                 # We pick a weight multiplier uniformly in log-space
-                logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
-                up.weights_init_minimal(source, math.exp(logwm))
+                # logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
+                up.weights_init_minimal(source, cfg.up.init_mult_max)
 
                 input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
 
