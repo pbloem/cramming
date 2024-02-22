@@ -122,7 +122,15 @@ def pretrain(cfg, setup):
         source_cfg = copy.deepcopy(cfg.arch)
         source_cfg.num_transformer_layers = cfg.up.source_layers
 
-        source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
+        # source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
+        source = up.GTransformer(
+            emb=cfg.arch.embedding.embedding_dim,
+            heads=cfg.arch.attention.num_attention_heads,
+            depth=cfg.up.source_layers,
+            seq_length=cfg.data.seq_length,
+            num_tokens=num_tokens,
+            nl=up.util.nl(cfg.up.nonlinearity),
+            mask_channel=False)
 
         print('-- source model:')
         print(source)
