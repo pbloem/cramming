@@ -245,7 +245,9 @@ def pretrain(cfg, setup):
                 #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
                 #    probability that the model retains some of the complexity of the input, while also allowing the option
                 #    that the input is entirely ignored.
-                output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
+
+                output = source(z)
+                # output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
                 # chars, mask = output[:, :, :-1], output[:, :, -1]
 
                 chars = sample(output, temperature=cfg.up.temperature)
