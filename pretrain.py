@@ -320,13 +320,14 @@ def pretrain(cfg, setup):
             inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
                                                 use_80_20_rule=cfg.up.use_80_20_rule)
 
-            with torch.cuda.amp.autocast():
+            with (torch.cuda.amp.autocast()):
                 output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
                 if cfg.up.transfer == 'discrete':
                     loss = F.cross_entropy(output.transpose(2, 1), targets)
                     # This looks like the loss is computed for all tokens, but the non-manipulated ones are set to -100
                     # in 'targets', so that they get masked out.
                 elif cfg.up.transfer == 'distill':
+                    assert cfg.up.source_mode == 'nnsimple'
 
                     # Compute the distill loss
                     loss = F.cross_entropy(output.transpose(2, 1), F.softmax(logits.detach(), dim=-1).transpose(2, 1), reduction='none')
@@ -335,6 +336,8 @@ def pretrain(cfg, setup):
                     tomask = (targets == -100)
                     assert tomask.size() == loss.size()
                     loss[tomask] *= 0.0
+                else:
+                    raise
 
             scaler.scale(loss).backward()
 
