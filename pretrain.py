@@ -336,6 +336,7 @@ def pretrain(cfg, setup):
                     tomask = (targets == -100)
                     assert tomask.size() == loss.size()
                     loss[tomask] *= 0.0
+                    loss = loss.mean()
                 else:
                     raise
 
