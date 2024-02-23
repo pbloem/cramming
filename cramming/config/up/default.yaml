@@ -13,7 +13,7 @@ spinup: 5_000          # Number of spinup batches, in which the model isn't trai
 nonlinearity: relu     # NL to use in the nnsimple source model.
 iterations: 1          # How many times to iterate the nnsimple source model.
 batch_size: 40         # Model batch size
-print_every: 1000       # How often to print from the buffer
+print_every: 1000      # How often to print from the buffer
 source_layers: 8       # How many trf layers to use in the source model (this is half the nr of the target model)
 sample_batch_size: 100 # Number of instances in the buffer to pass
                        # through the model each iteration
@@ -33,3 +33,7 @@ opt_mult: 1.0          # A multiplier for the up optimizer state, before it's ap
 eval_ood_every: -1     # How often to run an evaluation on the OOD datasets during u-pretraining
 eval_samples: 10_000   # How many samples to evaluate on for the OOD datasets
 use_80_20_rule: True   # Replace 20% of the masked tokens with thre true tokens or a corrupted token
+transfer: discrete     # How information is transfered from the source to the model. 'discrete' samples a sequence from
+                       # the source. 'distill' uses distillation on the logits produced by the model. 'continuous' uses
+                       # continuous input/output vectors to train the core of the model without the token embeddings and
+                       # language head.

@@ -46,6 +46,7 @@ def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_prob
         According to timeit this is not slower than the old approach (with was fast enough)
         """
         labels = inputs.clone() # prediction target, the unmasked input
+        # -- NB non-manipulated tokens are masked out below (by setting the target to -100).
 
         number_of_masks = round(mlm_probability * inputs.shape[1])
         mask_locations = torch.argsort(torch.randint_like(inputs, inputs.shape[1]))[:, :number_of_masks]
@@ -305,11 +306,8 @@ def pretrain(cfg, setup):
 
                 input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
 
-                for _ in range(cfg.up.iterations):
-                    batch = source(input)
-                    batch = sample(batch, temperature=cfg.up.temperature)
-
-                    input = batch
+                logits = source(input)
+                batch = sample(logits, temperature=cfg.up.temperature)
 
                 sampletime = toc()
 
@@ -324,7 +322,19 @@ def pretrain(cfg, setup):
 
             with torch.cuda.amp.autocast():
                 output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
-                loss = F.cross_entropy(output.transpose(2, 1), targets)
+                if cfg.up.transfer == 'discrete':
+                    loss = F.cross_entropy(output.transpose(2, 1), targets)
+                    # This looks like the loss is computed for all tokens, but the non-manipulated ones are set to -100
+                    # in 'targets', so that they get masked out.
+                elif cfg.up.transfer == 'distill':
+
+                    # Compute the distill loss
+                    loss = F.cross_entropy(output.transpose(2, 1), F.softmax(logits.detach(), dim=-1).transpose(2, 1), reduction='none')
+
+                    # zero out the loss for the entries that we not manipulated in `mask_batch`.
+                    tomask = (targets == -100)
+                    assert tomask.size() == loss.size()
+                    loss[tomask] *= 0.0
 
             scaler.scale(loss).backward()
 
