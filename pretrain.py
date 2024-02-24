@@ -318,10 +318,10 @@ def pretrain(cfg, setup):
                 iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
                 if distill:
-                    logits = buffer[iz, :].detach()
+                    logits = buffer[iz, :].detach().to(d())
                     batch = sample(logits, temperature=cfg.up.temperature)
                 else:
-                    batch = buffer[iz, :].detach()
+                    batch = buffer[iz, :].detach().to(d())
 
             if cfg.up.source_mode == 'nnsimple':
                 tic()
