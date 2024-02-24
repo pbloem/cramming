@@ -241,7 +241,7 @@ def pretrain(cfg, setup):
                 z = buffer[iz, :]
 
                 if distill:
-                    z = sample(z, tempreature=cfg.up.temperature)
+                    z = sample(z, temperature=cfg.up.temperature)
 
                 # Replace some random rows with uniform random characters (reset)
                 rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
@@ -312,7 +312,7 @@ def pretrain(cfg, setup):
 
                 if distill:
                     logits = buffer[iz, :].detach()
-                    batch = sample(batch, cfg.up.temperature)
+                    batch = sample(batch, temperature=cfg.up.temperature)
                 else:
                     batch = buffer[iz, :].detach()
 
