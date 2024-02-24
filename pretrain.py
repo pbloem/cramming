@@ -317,10 +317,9 @@ def pretrain(cfg, setup):
                 # Sample a batch from the buffer
                 iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
-
                 if distill:
                     logits = buffer[iz, :].detach()
-                    batch = sample(batch, temperature=cfg.up.temperature)
+                    batch = sample(logits, temperature=cfg.up.temperature)
                 else:
                     batch = buffer[iz, :].detach()
 
