@@ -247,7 +247,11 @@ def pretrain(cfg, setup):
                 rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
                 mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
 
-                uniform = torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+                uniform = \
+                    torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d()) if distill else \
+                    torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d())
+                # torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+
                 z[mask] = uniform[mask]
 
                 # Pass it through the source
