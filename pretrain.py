@@ -282,11 +282,14 @@ def pretrain(cfg, setup):
 
             for i in range(5):
                 if cfg.up.source_mode == 'nn':
-                    seq = buffer[i].tolist()
+                    seq = buffer[i]
                     if distill:
                         seq = sample(seq, cfg.up.temperature)
+                    seq = seq.tolist()
+
                 elif cfg.up.source_mode == 'aut':
                     seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
+
                 elif cfg.up.source_mode == 'nnsimple':
                     if batch is not None:
                         seq = batch[i].tolist()
