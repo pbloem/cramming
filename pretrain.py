@@ -238,23 +238,22 @@ def pretrain(cfg, setup):
 
                 # Slice a random selection of rows from the buffer (without replacement)
                 iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
-                z = buffer[iz, :].to(d())
+                z = buffer[iz].to(d())
 
-                if distill:
-                    z = sample(z, temperature=cfg.up.temperature)
-
-                # Replace some random rows with uniform random characters (reset)
+                # Replace some random instances with uniform random characters, or random logits in distillation mode
                 rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size,), fill_value=cfg.up.reset_prob)).to(torch.bool)
                 mask = \
                     rows[:, None, None].expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
                     rows[:, None].expand(cfg.up.sample_batch_size, context)
 
-                uniform = \
+                noise = \
                     torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d()) if distill else \
                     torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
                 # torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
 
-                z[mask] = uniform[mask]
+                z[mask] = noise[mask]
+                if distill:
+                    z = sample(z, temperature=cfg.up.temperature)
 
                 # Pass it through the source
                 # -- In non-sequential mode, pass the input through the model, and then mix the input and output together.
