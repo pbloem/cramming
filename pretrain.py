@@ -206,8 +206,8 @@ def pretrain(cfg, setup):
 
     if cfg.up.source_mode == 'nn':
         buffer = \
-            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d()) if distill else \
-            torch.randn(size=(cfg.up.buffer_size, context, num_tokens), device=d())
+            torch.randn(size=(cfg.up.buffer_size, context, num_tokens), device=d()) if distill else \
+            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
         # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
         #    sample of the tokens.
 
@@ -244,12 +244,14 @@ def pretrain(cfg, setup):
                     z = sample(z, temperature=cfg.up.temperature)
 
                 # Replace some random rows with uniform random characters (reset)
-                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
-                mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
+                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob)).to(torch.bool)
+                mask = \
+                    rows.expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
+                    rows.expand(cfg.up.sample_batch_size, context)
 
                 uniform = \
-                    torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d()) if distill else \
-                    torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d())
+                    torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d()) if distill else \
+                    torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
                 # torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
 
                 z[mask] = uniform[mask]
