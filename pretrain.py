@@ -244,10 +244,10 @@ def pretrain(cfg, setup):
                     z = sample(z, temperature=cfg.up.temperature)
 
                 # Replace some random rows with uniform random characters (reset)
-                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob)).to(torch.bool)
+                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size), fill_value=cfg.up.reset_prob)).to(torch.bool)
                 mask = \
-                    rows.expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
-                    rows.expand(cfg.up.sample_batch_size, context)
+                    rows[:, None, None].expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
+                    rows[:, None].expand(cfg.up.sample_batch_size, context)
 
                 uniform = \
                     torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d()) if distill else \
