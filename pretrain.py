@@ -206,8 +206,8 @@ def pretrain(cfg, setup):
 
     if cfg.up.source_mode == 'nn':
         buffer = \
-            torch.randn(size=(cfg.up.buffer_size, context, num_tokens), device=d()) if distill else \
-            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
+            torch.randn(size=(cfg.up.buffer_size, context, num_tokens)) if distill else \
+            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context))
         # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
         #    sample of the tokens.
 
@@ -238,7 +238,7 @@ def pretrain(cfg, setup):
 
                 # Slice a random selection of rows from the buffer (without replacement)
                 iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
-                z = buffer[iz, :]
+                z = buffer[iz, :].to(d())
 
                 if distill:
                     z = sample(z, temperature=cfg.up.temperature)
@@ -273,7 +273,7 @@ def pretrain(cfg, setup):
                 #
                 # z[mask] = chars[mask] # replace the masked part of the input by the output samples
 
-                buffer[iz, :] = output     # replace the inputs in the buffer
+                buffer[iz, :] = output.to('cpu')     # replace the inputs in the buffer
 
                 # -- Note that the samples are in full precision. These often require large weights, so mixed precision
                 #    leads to nans and infs and whatnot.
