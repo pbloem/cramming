@@ -17,7 +17,9 @@ print_every: 1000      # How often to print from the buffer
 source_layers: 8       # How many trf layers to use in the source model (this is half the nr of the target model)
 sample_batch_size: 100 # Number of instances in the buffer to pass
                        # through the model each iteration
-gc: 1.0                # Gradient clipping
+gc: 2.0                # Gradient clipping threshold. We use _adaptive gradient clipping_. That is, we take a running
+                       # mean and running standard deviation of the gradient norm, and if the current gradient norm is
+                       # higher than the mean plus `gc` times the standard deviation, we clip to that value.
 mask_token: 4          # Which masking token to use (4 in the default tokenizer). We hard-code this because the
                        # tokenizer is loaded after the UP. (see backend/utils.py:170)
 mlm_probability: 0.15  # Proportion of tokens to mask
@@ -33,7 +35,13 @@ opt_mult: 1.0          # A multiplier for the up optimizer state, before it's ap
 eval_ood_every: -1     # How often to run an evaluation on the OOD datasets during u-pretraining
 eval_samples: 10_000   # How many samples to evaluate on for the OOD datasets
 use_80_20_rule: True   # Replace 20% of the masked tokens with thre true tokens or a corrupted token
-transfer: discrete     # How information is transfered from the source to the model. 'discrete' samples a sequence from
-                       # the source. 'distill' uses distillation on the logits produced by the model. 'continuous' uses
-                       # continuous input/output vectors to train the core of the model without the token embeddings and
-                       # language head.
+transfer: discrete     # How information is transferred from the source to the model. 'discrete' samples a sequence from
+                       # the source. 'distill' uses distillation on the logits produced by the model. 'continuous' (TODO)
+                       # uses continuous input/output vectors to train the core of the model without the token embeddings
+                       # and language head.
+loss_mask_scale: 0.0   # In distill mode, how much to scale down the non-manipulated elements. In plain MLM training,
+                       # these are masked out, because they're easy to predict. However, in distill mode, we _sample_ the
+                       # input from the logit, so recovering the logit is actually a challenging task, so including them
+                       # in the loss, potentially with a scaling factor, creates a richer signal to learn from.
+                       # This value is a multiplier for the loss of the non-manipulated elements; 0.0 corresponds to
+                       # masking them out as in the plain MLM loss.

@@ -114,6 +114,8 @@ def pretrain(cfg, setup):
 
     scaler = torch.cuda.amp.GradScaler()
 
+    distill = cfg.up.transfer == 'distill'
+
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
@@ -203,7 +205,11 @@ def pretrain(cfg, setup):
             source = torch.nn.DataParallel(source)
 
     if cfg.up.source_mode == 'nn':
-        buffer = torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d())
+        buffer = \
+            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context), device=d()) if distill else \
+            torch.randn(size=(cfg.up.buffer_size, context, num_tokens), device=d())
+        # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
+        #    sample of the tokens.
 
     # mean and variance of the gradient norm
     gnm, gnv = 0, 0
@@ -234,6 +240,9 @@ def pretrain(cfg, setup):
                 iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
                 z = buffer[iz, :]
 
+                if distill:
+                    z = sample(z, tempreature=cfg.up.temperature)
+
                 # Replace some random rows with uniform random characters (reset)
                 rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size, 1), fill_value=cfg.up.reset_prob))
                 mask = rows.expand(cfg.up.sample_batch_size, context).to(torch.bool)
@@ -251,11 +260,14 @@ def pretrain(cfg, setup):
                 # output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
                 # chars, mask = output[:, :, :-1], output[:, :, -1]
 
-                z = sample(output, temperature=cfg.up.temperature)
+                if not distill:
+                    output = sample(output, temperature=cfg.up.temperature)
+
                 # mask = torch.sigmoid(mask).to(torch.bool)
                 #
                 # z[mask] = chars[mask] # replace the masked part of the input by the output samples
-                buffer[iz, :] = z     # replace the inputs in the buffer
+
+                buffer[iz, :] = output     # replace the inputs in the buffer
 
                 # -- Note that the samples are in full precision. These often require large weights, so mixed precision
                 #    leads to nans and infs and whatnot.
@@ -266,6 +278,8 @@ def pretrain(cfg, setup):
             for i in range(5):
                 if cfg.up.source_mode == 'nn':
                     seq = buffer[i].tolist()
+                    if distill:
+                        seq = sample(seq, cfg.up.temperature)
                 elif cfg.up.source_mode == 'aut':
                     seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
                 elif cfg.up.source_mode == 'nnsimple':
@@ -295,7 +309,12 @@ def pretrain(cfg, setup):
                 # Sample a batch from the buffer
                 iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
 
-                batch = buffer[iz, :]
+
+                if distill:
+                    logits = buffer[iz, :].detach()
+                    batch = sample(batch, cfg.up.temperature)
+                else:
+                    batch = buffer[iz, :].detach()
 
             if cfg.up.source_mode == 'nnsimple':
                 tic()
@@ -322,20 +341,21 @@ def pretrain(cfg, setup):
 
             with (torch.cuda.amp.autocast()):
                 output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+
                 if cfg.up.transfer == 'discrete':
                     loss = F.cross_entropy(output.transpose(2, 1), targets)
-                    # This looks like the loss is computed for all tokens, but the non-manipulated ones are set to -100
-                    # in 'targets', so that they get masked out.
+                    # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
+                    #    -100 in 'targets', so that they get masked out.
                 elif cfg.up.transfer == 'distill':
-                    assert cfg.up.source_mode == 'nnsimple'
+                    assert cfg.up.source_mode == 'nnsimple' or cfg.up.source_mode == 'nn'
 
                     # Compute the distill loss
                     loss = F.cross_entropy(output.transpose(2, 1), F.softmax(logits.detach(), dim=-1).transpose(2, 1), reduction='none')
 
-                    # zero out the loss for the entries that we not manipulated in `mask_batch`.
+                    # zero out the loss for the entries that were not manipulated in `mask_batch`.
                     tomask = (targets == -100)
                     assert tomask.size() == loss.size()
-                    loss[tomask] *= 0.0
+                    loss[tomask] *= cfg.up.loss_mask_scale
                     loss = loss.mean()
                 else:
                     raise
@@ -343,9 +363,10 @@ def pretrain(cfg, setup):
             scaler.scale(loss).backward()
 
             # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-            # norm, and if the current norm is more than two standard deviations above the mean, we clip it to that value.
+            # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
+            # that value.
             gn = gradient_norm(model)
-            lim = gnm + math.sqrt(gnv) * 2.0
+            lim = gnm + math.sqrt(gnv) * cfg.up.gc
             if i > 10 and gn > lim:
                 nn.utils.clip_grad_norm_(model.parameters(), lim)
 
