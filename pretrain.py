@@ -600,6 +600,7 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
+                'dp-lr': opt.param_groups[0]['lr']
             })
 
         # Check stopping criteria
