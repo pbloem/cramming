@@ -572,6 +572,10 @@ def main_training_process(cfg, setup):
                 #    universal pretraining.
 
             model_engine.optimizer.load_state_dict(sd)
+            # -- This overwrites the learning rate?
+
+            # model_engine.optimizer
+
             # -- reuse the optimizer from the UP training
 
     # -- Force some garbage collecting
@@ -600,7 +604,7 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
-                'dp-lr': opt.param_groups[0]['lr']
+                'dp-lr': model_engine.optimizer.param_groups[0]['lr']
             })
 
         # Check stopping criteria
