@@ -572,9 +572,6 @@ def main_training_process(cfg, setup):
                 #    universal pretraining.
 
             model_engine.optimizer.load_state_dict(sd)
-            # -- This overwrites the learning rate?
-
-            # model_engine.optimizer
 
             # -- reuse the optimizer from the UP training
 

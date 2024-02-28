@@ -173,13 +173,22 @@ def get_schedule_fn(initial_time, cfg_train):
             base_percentage=0.5,
             initial_time=initial_time,
         )
-    elif cfg_train.scheduler == "budget-triangle2":
+    elif cfg_train.scheduler == "budget-triangle2": # Used in BERT-O4 baseline
         scheduler_fn = partial(
             get_budget_triangle,
             hour_budget=cfg_train.budget,
             num_training_steps=cfg_train.steps,
             falloff=0.25,
             base_percentage=0.25,
+            initial_time=initial_time,
+        )
+    elif cfg_train.scheduler == "budget-triangle-up": # Used for UP to combat catastrophic forgetting
+        scheduler_fn = partial(
+            get_budget_triangle,
+            hour_budget=cfg_train.budget,
+            num_training_steps=cfg_train.steps,
+            falloff=0.25,
+            base_percentage=0.0,
             initial_time=initial_time,
         )
     elif cfg_train.scheduler in [
