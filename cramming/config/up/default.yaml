@@ -15,6 +15,7 @@ iterations: 1          # How many times to iterate the nnsimple source model.
 batch_size: 40         # Model batch size
 print_every: 1000      # How often to print from the buffer
 source_layers: 8       # How many trf layers to use in the source model (this is half the nr of the target model)
+bid_source: False      # Whether the source is causal (False) or bidirectional (True)
 sample_batch_size: 100 # Number of instances in the buffer to pass
                        # through the model each iteration
 gc: 2.0                # Gradient clipping threshold. We use _adaptive gradient clipping_. That is, we take a running
