@@ -46,6 +46,6 @@ loss_mask_scale: 0.0   # In distill mode, how much to scale down the non-manipul
                        # in the loss, potentially with a scaling factor, creates a richer signal to learn from.
                        # This value is a multiplier for the loss of the non-manipulated elements; 0.0 corresponds to
                        # masking them out as in the plain MLM loss.
-snapshot_file: None    # Where to save the model/opt snapshot after pretraining is finished. If None, no snapshot is 
+snapshot_file: null    # Where to save the model/opt snapshot after pretraining is finished. If None, no snapshot is
                        # saved
-snapshot: None         # Which snapshot to load. If None, a u-pretraining run is performed to create a fresh snapshot.
+snapshot: null         # Which snapshot to load. If None, a u-pretraining run is performed to create a fresh snapshot.
