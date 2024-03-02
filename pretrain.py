@@ -440,6 +440,7 @@ def pretrain(cfg, setup):
     #    leading to OOM.
 
     if cfg.up.snapshot_file is not None:
+        print(f'Saving snapshot to {cfg.up.snapshot_file}')
         torch.save({
             'model': model.state_dict(),
             'opt': opt.state_dict()
