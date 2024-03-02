@@ -439,7 +439,7 @@ def pretrain(cfg, setup):
     # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
     #    leading to OOM.
 
-    if cfg.snapshot_file is not None:
+    if cfg.up.snapshot_file is not None:
         torch.save({
             'model': model.state_dict(),
             'opt': opt.state_dict()
