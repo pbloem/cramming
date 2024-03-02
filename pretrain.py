@@ -439,6 +439,12 @@ def pretrain(cfg, setup):
     # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
     #    leading to OOM.
 
+    if cfg.snapshot_file is not None:
+        torch.save({
+            'model': model.state_dict(),
+            'opt': opt.state_dict()
+        }, cfg.up.snapshot_file)
+
     return model, opt
 
 
@@ -528,10 +534,24 @@ def main_training_process(cfg, setup):
     """This function controls the central training loop."""
     local_time = time.time()
 
+    opt_sd = None
     if cfg.up.enabled:
-        model, opt = pretrain(cfg, setup)
+        if cfg.up.snapshot is None:
+            model, opt = pretrain(cfg, setup)
+            opt_sd = opt.state_dict()
+
+        else:
+            print(f'Loading UP snapshot from file {cfg.up.snapshot}')
+            dct = torch.load(cfg.up.snapshot)
+            model_sd = dct['model']
+            opt_sd = dct['opt']
+
+            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            model.load_state_dict(model_sd)
+
     else:
-        model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
@@ -554,24 +574,23 @@ def main_training_process(cfg, setup):
 
     if cfg.up.enabled and cfg.up.reuse_opt:
         with torch.no_grad():
-            sd = opt.state_dict()
+            assert opt_sd is not None
 
             print('state dict:')
 
             if cfg.up.opt_mult > 0.0:
-                for val in sd['state'].values():
+                for val in opt_sd['state'].values():
                     val['exp_avg'] *= cfg.up.opt_mult
                     val['exp_avg_sq'] *= cfg.up.opt_mult
 
                     print('    min/max for exp. avg', val['exp_avg'].min(), val['exp_avg'].max())
 
             print()
+            # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
+            #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
+            #    universal pretraining.
 
-                # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
-                #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
-                #    universal pretraining.
-
-            model_engine.optimizer.load_state_dict(sd)
+            model_engine.optimizer.load_state_dict(opt_sd)
 
             # -- reuse the optimizer from the UP training
 
@@ -768,7 +787,6 @@ def em_meanvar(x, mean=0, variance=0, alpha=0.5):
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
     cramming.utils.main_launcher(cfg, main_training_process, job_name="pretraining")
-
 
 def optimizer_to(optim, device):
     """
