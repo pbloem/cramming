@@ -599,13 +599,14 @@ def main_training_process(cfg, setup):
 
         if rmix > 0.0:
             b, l = batch['input_ids'].size()
-            k = int(rmix * b)
 
-            if k > 0:
-                bufferidx = random.sample(k=k, population=range(rbuffer.size(0)))
-                batchidx  = random.sample(k=k, population=range(b))
+            idx = torch.bernoulli(torch.full(fill_value=rmix, size=(b, ))).to(d())
+            k = int(idx.sum().item())
+            idx = idx[:, None].to(torch.bool).expand(b, l)
 
-                batch['input_ids'][batchidx] = rbuffer[bufferidx]
+            bufferidx = random.sample(k=k, population=range(rbuffer.size(0)))
+
+            batch['input_ids'][idx] = rbuffer[bufferidx]
 
             rmix -= cfg.up.up_mix_decay
 
