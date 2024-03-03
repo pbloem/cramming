@@ -539,6 +539,8 @@ def main_training_process(cfg, setup):
 
             # -- We preload the rehearsal data, rather than generating it on the fly, so that it doesn't cut into
             #    our DP training budget.
+            rmix = cfg.up.up_mix
+
     else:
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
@@ -595,14 +597,17 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
-        if cfg.up.up_mix > 0.0:
+        if rmix > 0.0:
             b, l = batch.size()
-            k = int(cfg.up.up_mix * b)
+            k = int(rmix * b)
 
-            bufferidx = random.sample(k, range(rbuffer.size(0)))
-            batchidx  = random.sample(k, range(b))
+            if k > 0:
+                bufferidx = random.sample(k, range(rbuffer.size(0)))
+                batchidx  = random.sample(k, range(b))
 
-            batch[batchidx] = bufferidx[bufferidx]
+                batch[batchidx] = bufferidx[bufferidx]
+
+            rmix -= cfg.up.up_mix_decay
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
@@ -612,7 +617,8 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
-                'dp-lr': model_engine.optimizer.param_groups[0]['lr']
+                'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
+                'rehearsal proportion': rmix,
             })
 
         # Check stopping criteria
