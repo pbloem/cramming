@@ -602,14 +602,14 @@ def main_training_process(cfg, setup):
         exit()
 
         if rmix > 0.0:
-            b, l = batch[0].size()
+            b, l = batch['input_ids'].size()
             k = int(rmix * b)
 
             if k > 0:
                 bufferidx = random.sample(k, range(rbuffer.size(0)))
                 batchidx  = random.sample(k, range(b))
 
-                batch[0][batchidx] = bufferidx[bufferidx]
+                batch['input_ids'][batchidx] = bufferidx[bufferidx]
 
             rmix -= cfg.up.up_mix_decay
 
