@@ -94,6 +94,142 @@ def set_lr(lr, opt):
         g['lr'] = lr
         g['initial_lr'] = lr
 
+def data_generator(num_tokens, cfg):
+    """
+    A generator for batches of random data.
+    :param cfg:
+    :return:
+    """
+    distill = cfg.up.transfer == 'distill'
+    context = cfg.arch.embedding.max_seq_length
+
+    if cfg.up.source_mode.startswith('nn'):
+        # randomness source model
+
+        source = up.GTransformer(
+            emb=cfg.arch.embedding.embedding_dim,
+            heads=cfg.arch.attention.num_attention_heads,
+            depth=cfg.up.source_layers,
+            seq_length=cfg.data.seq_length,
+            num_tokens=num_tokens,
+            nl=up.util.nl(cfg.up.nonlinearity),
+            mask_channel=False,
+            autoregressive=not cfg.up.bid_source
+        )
+
+        if torch.cuda.is_available():
+            source.cuda()
+        if cfg.up.dp:
+            source = torch.nn.DataParallel(source)
+
+        print('-- source model:')
+        print(source)
+        print()
+
+        # Add one output channel to the source model for the masking.
+        # i, o = source.decoder.in_features, source.decoder.out_features
+        # source.decoder = nn.Linear(i, o + 1)
+
+    if cfg.up.source_mode == 'nn':
+        buffer = \
+            torch.randn(size=(cfg.up.buffer_size, context, num_tokens)) if distill else \
+            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context))
+        # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
+        #    sample of the tokens.
+
+
+    num = 0
+
+    while True:
+        with (torch.no_grad()):
+
+            # Process the buffer
+            if cfg.up.source_mode == 'nn':
+                tic()
+
+                # Re-initialize the parameters of source (i.e. sample a random source)
+                if cfg.up.init_mode == 'default':
+                    up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                elif cfg.up.init_mode == 'plain':
+                    up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
+                elif cfg.up.init_mode == 'minimal':
+                    up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max)
+                else:
+                    raise
+
+                # Slice a random selection of rows from the buffer (without replacement)
+                iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
+                z = buffer[iz].to(d())
+
+                # Replace some random instances with uniform random characters, or random logits in distillation mode
+                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size,), fill_value=cfg.up.reset_prob)).to(torch.bool)
+                mask = \
+                    rows[:, None, None].expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
+                    rows[:, None].expand(cfg.up.sample_batch_size, context)
+
+                noise = \
+                    torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d()) if distill else \
+                    torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+                # torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
+
+                z[mask] = noise[mask]
+                if distill:
+                    z = sample(z, temperature=cfg.up.temperature)
+
+                # Pass it through the source
+                output = source(z)
+
+                # output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
+                # chars, mask = output[:, :, :-1], output[:, :, -1]
+
+                if not distill:
+                    output = sample(output, temperature=cfg.up.temperature)
+
+                # mask = torch.sigmoid(mask).to(torch.bool)
+                #
+                # z[mask] = chars[mask] # replace the masked part of the input by the output samples
+
+                buffer[iz, :] = output.to('cpu')     # replace the inputs in the buffer
+
+                # -- Note that the samples are in full precision. These often require large weights, so mixed precision
+                #    leads to nans and infs and whatnot.
+
+        num += 1
+        if num > cfg.up.spinup:
+
+            batch = None
+            if cfg.up.source_mode == 'aut':
+                # Sample from a probabilistic automaton
+                batch = [up.data.gen_autseq(length=cfg.data.seq_length, vocab=cfg.data.vocab_size) for _ in
+                         range(cfg.up.batch_size)]
+                batch = torch.tensor(batch)
+
+            elif cfg.up.source_mode == 'nn':
+                # Perform a training step on batches sampled from the buffer
+                # Sample a batch from the buffer
+                iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+
+                if distill:
+                    logits = buffer[iz, :].detach().to(d())
+                    batch = sample(logits, temperature=cfg.up.temperature)
+                else:
+                    batch = buffer[iz, :].detach().to(d())
+
+            if cfg.up.source_mode == 'nnsimple':
+
+                # We pick a weight multiplier uniformly in log-space
+                # logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
+                up.weights_init_minimal(source, cfg.up.init_mult_max)
+
+                input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
+
+                logits = source(input)
+                batch = sample(logits, temperature=cfg.up.temperature)
+
+
+            yield batch
+
+
 def pretrain(cfg, setup):
 
     print('Start universal pretraining.')
@@ -114,51 +250,11 @@ def pretrain(cfg, setup):
 
     scaler = torch.cuda.amp.GradScaler()
 
-    distill = cfg.up.transfer == 'distill'
-
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
 
-    if cfg.up.source_mode == 'nn':
-        # randomness source model
-        # source_cfg = copy.deepcopy(cfg.arch)
-        # source_cfg.num_transformer_layers = cfg.up.source_layers
-
-        # source = cramming.construct_model(source_cfg, cfg.data.vocab_size)
-        source = up.GTransformer(
-            emb=cfg.arch.embedding.embedding_dim,
-            heads=cfg.arch.attention.num_attention_heads,
-            depth=cfg.up.source_layers,
-            seq_length=cfg.data.seq_length,
-            num_tokens=num_tokens,
-            nl=up.util.nl(cfg.up.nonlinearity),
-            mask_channel=False,
-            autoregressive=not cfg.up.bid_source
-        )
-
-        print('-- source model:')
-        print(source)
-        print()
-
-        # Add one output channel to the source model for the masking.
-        # i, o = source.decoder.in_features, source.decoder.out_features
-        # source.decoder = nn.Linear(i, o + 1)
-
-    if cfg.up.source_mode == 'nnsimple':
-        # Initialize the source model
-        source = up.GTransformer(
-            emb=cfg.arch.embedding.embedding_dim,
-            heads=cfg.arch.attention.num_attention_heads,
-            depth=cfg.up.source_layers,
-            seq_length=cfg.data.seq_length,
-            num_tokens=num_tokens,
-            nl=up.util.nl(cfg.up.nonlinearity),
-            mask_channel=False)
-
-        print('-- source model:')
-        print(source)
-        print()
+    datagen = data_generator(num_tokens, cfg)
 
     if cfg.up.reuse_opt:
         opt, _ = _load_optimizer(model, cfg.train, cfg.impl, initial_time=0)
@@ -198,20 +294,9 @@ def pretrain(cfg, setup):
 
     if torch.cuda.is_available():
         model.cuda()
-        if cfg.up.source_mode == 'nn' or cfg.up.source_mode == 'nnsimple':
-            source.cuda()
 
     if cfg.up.dp:
         model = torch.nn.DataParallel(model)
-        if cfg.up.source_mode == 'nn' or cfg.up.source_mode == 'nnsimple':
-            source = torch.nn.DataParallel(source)
-
-    if cfg.up.source_mode == 'nn':
-        buffer = \
-            torch.randn(size=(cfg.up.buffer_size, context, num_tokens)) if distill else \
-            torch.randint(low=0, high=num_tokens, size=(cfg.up.buffer_size, context))
-        # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
-        #    sample of the tokens.
 
     # mean and variance of the gradient norm
     gnm, gnv = 0, 0
@@ -219,220 +304,112 @@ def pretrain(cfg, setup):
     batch = None
 
     # Launch training
-    for i in (bar := trange(cfg.up.num_batches + cfg.up.spinup)):
+    for i in (bar := trange(cfg.up.num_batches)):
 
-        # Sample a batch on the fly
-        with (torch.no_grad()):
-
-            # Process the buffer
-            if cfg.up.source_mode == 'nn':
-                tic()
-
-                # Re-initialize the parameters of source (i.e. sample a random source)
-                if cfg.up.init_mode == 'default':
-                    up.weights_init(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
-                elif cfg.up.init_mode == 'plain':
-                    up.weights_init_plain(source, init_mult_max=cfg.up.init_mult_max, mask_prob_max=cfg.up.mask_prob_max)
-                elif cfg.up.init_mode == 'minimal':
-                    up.weights_init_minimal(source, init_mult_max=cfg.up.init_mult_max)
-                else:
-                    raise
-
-                # Slice a random selection of rows from the buffer (without replacement)
-                iz = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
-                z = buffer[iz].to(d())
-
-                # Replace some random instances with uniform random characters, or random logits in distillation mode
-                rows = torch.bernoulli(torch.full(size=(cfg.up.sample_batch_size,), fill_value=cfg.up.reset_prob)).to(torch.bool)
-                mask = \
-                    rows[:, None, None].expand(cfg.up.sample_batch_size, context, num_tokens) if distill else \
-                    rows[:, None].expand(cfg.up.sample_batch_size, context)
-
-                noise = \
-                    torch.randn(size=(cfg.up.sample_batch_size, context, num_tokens), device=d()) if distill else \
-                    torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
-                # torch.randint(low=0, high=num_tokens, size=(cfg.up.sample_batch_size, context), device=d())
-
-                z[mask] = noise[mask]
-                if distill:
-                    z = sample(z, temperature=cfg.up.temperature)
-
-                # Pass it through the source
-                # -- In non-sequential mode, pass the input through the model, and then mix the input and output together.
-                #    The model itself produces the mask, functioning as a kind of gate on the input. This increase the
-                #    probability that the model retains some of the complexity of the input, while also allowing the option
-                #    that the input is entirely ignored.
-
-                output = source(z)
-                # output = source(z)['outputs'].view(cfg.up.sample_batch_size, context, -1)
-                # chars, mask = output[:, :, :-1], output[:, :, -1]
-
-                if not distill:
-                    output = sample(output, temperature=cfg.up.temperature)
-
-                # mask = torch.sigmoid(mask).to(torch.bool)
-                #
-                # z[mask] = chars[mask] # replace the masked part of the input by the output samples
-
-                buffer[iz, :] = output.to('cpu')     # replace the inputs in the buffer
-
-                # -- Note that the samples are in full precision. These often require large weights, so mixed precision
-                #    leads to nans and infs and whatnot.
-                sampletime = toc()
+        tic()
+        batch = next(datagen); sampletime = toc()
 
         if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
-
             for i in range(5):
-                if cfg.up.source_mode == 'nn':
-                    seq = buffer[i]
-                    if distill:
-                        seq = sample(seq, cfg.up.temperature)
-                    seq = seq.tolist()
+                seq = batch[i].tolist()
+                print('target', i)
 
-                elif cfg.up.source_mode == 'aut':
-                    seq = up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size)
+                print(up.util.remap(seq))
+                print()
 
-                elif cfg.up.source_mode == 'nnsimple':
-                    if batch is not None:
-                        seq = batch[i].tolist()
-                    else:
-                        seq = None
-                else:
-                    raise
+        tic()
+        if torch.cuda.is_available():
+            batch = batch.cuda()
 
-                if seq is not None:
-                    print('target', i)
+        # We use the MLM loss to train.
+        inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
+                                            use_80_20_rule=cfg.up.use_80_20_rule)
 
-                    print(up.util.remap(seq))
-                    print()
+        with (torch.cuda.amp.autocast()):
+            output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
 
-        if i >= cfg.up.spinup:
+            if cfg.up.transfer == 'discrete':
+                loss = F.cross_entropy(output.transpose(2, 1), targets)
+                # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
+                #    -100 in 'targets', so that they get masked out.
+            elif cfg.up.transfer == 'distill':
+                assert cfg.up.source_mode == 'nnsimple' or cfg.up.source_mode == 'nn'
 
-            if cfg.up.source_mode == 'aut':
-                tic()
-                batch = [up.data.gen_autseq(length=cfg.data.seq_length,vocab=cfg.data.vocab_size) for _ in range(cfg.up.batch_size)]
-                batch = torch.tensor(batch)
-                sampletime = toc()
+                # Compute the distill loss
+                loss = F.cross_entropy(output.transpose(2, 1), F.softmax(logits.detach(), dim=-1).transpose(2, 1), reduction='none')
 
-            elif cfg.up.source_mode == 'nn':
-                # Perform a training step on batches sampled from the buffer
-                # Sample a batch from the buffer
-                iz = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+                # zero out the loss for the entries that were not manipulated in `mask_batch`.
+                tomask = (targets == -100)
+                assert tomask.size() == loss.size()
+                loss[tomask] *= cfg.up.loss_mask_scale
+                loss = loss.mean()
+            else:
+                raise
 
-                if distill:
-                    logits = buffer[iz, :].detach().to(d())
-                    batch = sample(logits, temperature=cfg.up.temperature)
-                else:
-                    batch = buffer[iz, :].detach().to(d())
+        scaler.scale(loss).backward()
 
-            if cfg.up.source_mode == 'nnsimple':
-                tic()
+        # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
+        # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
+        # that value.
+        gn = gradient_norm(model)
+        lim = gnm + math.sqrt(gnv) * cfg.up.gc
+        if i > 10 and gn > lim:
+            nn.utils.clip_grad_norm_(model.parameters(), lim)
 
-                # We pick a weight multiplier uniformly in log-space
-                # logwm = random.random() * math.log(cfg.up.init_mult_max) + 1
-                up.weights_init_minimal(source, cfg.up.init_mult_max)
+        gnm, gnv = em_meanvar(gn, gnm, gnv)
 
-                input = torch.randint(low=0, high=num_tokens, size=(cfg.up.batch_size, context), device=d())
+        mbatch_size += 1
 
-                logits = source(input)
-                batch = sample(logits, temperature=cfg.up.temperature)
+        if mbatch_size > int(acc):  # perform a step
 
-                sampletime = toc()
+            scaler.step(opt)
+            scaler.update()
 
-            tic()
+            opt.zero_grad()
+            set_lr(lr=min(lr, cfg.up.lr), opt=opt)
 
-            if torch.cuda.is_available():
-                batch = batch.cuda()
+            mbatch_size = 0
 
-            # We use the MLM loss to train.
-            inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
-                                                use_80_20_rule=cfg.up.use_80_20_rule)
+        if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
+            acc += acc_delta * batch.size(0)
+        if seen <= cfg.up.warmup: # warm up the learning rate
+            lr  += lr_delta * batch.size(0)
+        if cfg.up.cooldown > 0 and seen > cd_start: # cool down the learning rate
+            lr  -= cd_delta * batch.size(0)
 
-            with (torch.cuda.amp.autocast()):
-                output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+        seen += batch.size(0)
+        traintime = toc()
 
-                if cfg.up.transfer == 'discrete':
-                    loss = F.cross_entropy(output.transpose(2, 1), targets)
-                    # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
-                    #    -100 in 'targets', so that they get masked out.
-                elif cfg.up.transfer == 'distill':
-                    assert cfg.up.source_mode == 'nnsimple' or cfg.up.source_mode == 'nn'
+        if cfg.wandb.enabled:
+            wandb.log({
+                'loss': loss,
+                'learning_rate': opt.param_groups[0]['lr'],
+                'gradient_norm': gn,
+                'sample_time': sampletime,
+                'train_time': traintime,
+                'pre-training': 1.0,
+                'ema_gn': gnm,
+                'em_std_gn': math.sqrt(gnv),
+                'clip': 1.0 if gn > lim else 0.0,
+                'acc': acc
+            })
+        bar.set_postfix({'loss': f'{loss:.02}'})
 
-                    # Compute the distill loss
-                    loss = F.cross_entropy(output.transpose(2, 1), F.softmax(logits.detach(), dim=-1).transpose(2, 1), reduction='none')
+        if cfg.up.eval_ood_every > 0 and (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
 
-                    # zero out the loss for the entries that were not manipulated in `mask_batch`.
-                    tomask = (targets == -100)
-                    assert tomask.size() == loss.size()
-                    loss[tomask] *= cfg.up.loss_mask_scale
-                    loss = loss.mean()
-                else:
-                    raise
+            for name, data in datasets.items():
+                print(f'evaluating {name}')
 
-            scaler.scale(loss).backward()
+                with torch.no_grad():
+                    est = estimate_compression(
+                        model=model,
+                        data=data,
+                        nsamples=cfg.up.eval_samples,
+                        context=cfg.data.seq_length,
+                        batch_size=int(cfg.up.batch_size * 2.0)
+                    )
 
-            # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-            # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
-            # that value.
-            gn = gradient_norm(model)
-            lim = gnm + math.sqrt(gnv) * cfg.up.gc
-            if i > 10 and gn > lim:
-                nn.utils.clip_grad_norm_(model.parameters(), lim)
-
-            gnm, gnv = em_meanvar(gn, gnm, gnv)
-
-            mbatch_size += 1
-
-            if mbatch_size > int(acc):  # perform a step
-
-                scaler.step(opt)
-                scaler.update()
-
-                opt.zero_grad()
-                set_lr(lr=min(lr, cfg.up.lr), opt=opt)
-
-                mbatch_size = 0
-
-            if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
-                acc += acc_delta * batch.size(0)
-            if seen <= cfg.up.warmup: # warm up the learning rate
-                lr  += lr_delta * batch.size(0)
-            if cfg.up.cooldown > 0 and seen > cd_start: # cool down the learning rate
-                lr  -= cd_delta * batch.size(0)
-
-            seen += batch.size(0)
-            traintime = toc()
-
-            if cfg.wandb.enabled:
-                wandb.log({
-                    'loss': loss,
-                    'learning_rate': opt.param_groups[0]['lr'],
-                    'gradient_norm': gn,
-                    'sample_time': sampletime,
-                    'train_time': traintime,
-                    'pre-training': 1.0,
-                    'ema_gn': gnm,
-                    'em_std_gn': math.sqrt(gnv),
-                    'clip': 1.0 if gn > lim else 0.0,
-                    'acc': acc
-                })
-            bar.set_postfix({'loss': f'{loss:.02}'})
-
-            if cfg.up.eval_ood_every > 0 and (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
-
-                for name, data in datasets.items():
-                    print(f'evaluating {name}')
-
-                    with torch.no_grad():
-                        est = estimate_compression(
-                            model=model,
-                            data=data,
-                            nsamples=cfg.up.eval_samples,
-                            context=cfg.data.seq_length,
-                            batch_size=int(cfg.up.batch_size * 2.0)
-                        )
-
-                    wandb.log({f'ood/val-{name}': est})
+                wandb.log({f'ood/val-{name}': est})
 
     opt.zero_grad()
     optimizer_to(opt, 'cpu')
@@ -550,9 +527,20 @@ def main_training_process(cfg, setup):
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
             model.load_state_dict(model_sd)
 
+        if cfg.up.up_mix > 0.0:
+            # Preload a buffer of samples from the UP generator
+            num_tokens = model.encoder.embedding.word_embedding.num_embeddings
+            datagen = data_generator(num_tokens, cfg)
+
+            print('Preloading rehearsal data.'); tic()
+            rbatches = [next(datagen) for _ in range(cfg.up.nrehearsal)]
+            rbuffer = torch.cat(rbatches, dim=0)
+            print(f'Done. ({toc():.2}s).')
+
+            # -- We preload the rehearsal data, rather than generating it on the fly, so that it doesn't cut into
+            #    our DP training budget.
     else:
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
@@ -595,12 +583,6 @@ def main_training_process(cfg, setup):
 
             # -- reuse the optimizer from the UP training
 
-    # -- Force some garbage collecting
-    # del sd, opt
-    # gc.collect()
-    # with torch.no_grad():
-    #     torch.cuda.empty_cache()
-
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
 
@@ -612,6 +594,15 @@ def main_training_process(cfg, setup):
 
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
+
+        if cfg.up.up_mix > 0.0:
+            b, l = batch.size()
+            k = int(cfg.up.up_mix * b)
+
+            bufferidx = random.sample(k, range(rbuffer.size(0)))
+            batchidx  = random.sample(k, range(b))
+
+            batch[batchidx] = bufferidx[bufferidx]
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
