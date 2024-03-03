@@ -598,7 +598,7 @@ def main_training_process(cfg, setup):
     for step, batch in enumerate(dataloader, initial_step + 1):
 
         if rmix > 0.0:
-            b, l = batch.size()
+            b, l = batch[0].size()
             k = int(rmix * b)
 
             if k > 0:
