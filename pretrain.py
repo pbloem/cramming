@@ -604,9 +604,11 @@ def main_training_process(cfg, setup):
             k = int(idx.sum().item())
             idx = idx[:, None].to(torch.bool).expand(b, l)
 
-            bufferidx = random.sample(k=k, population=range(rbuffer.size(0)))
+            bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0))).to(d())
+            bidx[random.sample(k=k, population=range(rbuffer.size(0)))] = 1.0
+            bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            batch['input_ids'][idx] = rbuffer[bufferidx]
+            batch['input_ids'][idx] = rbuffer[bidx]
 
             rmix -= cfg.up.up_mix_decay
 
