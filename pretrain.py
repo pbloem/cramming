@@ -605,7 +605,7 @@ def main_training_process(cfg, setup):
                 bufferidx = random.sample(k, range(rbuffer.size(0)))
                 batchidx  = random.sample(k, range(b))
 
-                batch[batchidx] = bufferidx[bufferidx]
+                batch[0][batchidx] = bufferidx[bufferidx]
 
             rmix -= cfg.up.up_mix_decay
 
