@@ -534,7 +534,7 @@ def main_training_process(cfg, setup):
 
             print('Preloading rehearsal data.'); tic()
             rbatches = [next(datagen) for _ in range(cfg.up.nrehearsal)]
-            rbuffer = torch.cat(rbatches, dim=0)
+            rbuffer = torch.cat(rbatches, dim=0).to('cpu')
             print(f'Done. ({toc():.2}s).')
 
             # -- We preload the rehearsal data, rather than generating it on the fly, so that it doesn't cut into
@@ -596,7 +596,6 @@ def main_training_process(cfg, setup):
 
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
-
 
         if rmix > 0.0:
             b, l = batch['input_ids'].size()
