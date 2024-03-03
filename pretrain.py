@@ -603,8 +603,8 @@ def main_training_process(cfg, setup):
             k = int(rmix * b)
 
             if k > 0:
-                bufferidx = random.sample(k, range(rbuffer.size(0)))
-                batchidx  = random.sample(k, range(b))
+                bufferidx = random.sample(k=k, population=range(rbuffer.size(0)))
+                batchidx  = random.sample(k=k, population=range(b))
 
                 batch['input_ids'][batchidx] = bufferidx[bufferidx]
 
