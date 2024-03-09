@@ -543,6 +543,7 @@ def main_training_process(cfg, setup):
 
     else:
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            rmix = -1.0
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
