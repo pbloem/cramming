@@ -586,6 +586,8 @@ def main_training_process(cfg, setup):
 
             # -- reuse the optimizer from the UP training
 
+    model_engine.optimizer.betas = cfg.up.betas
+
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
 
