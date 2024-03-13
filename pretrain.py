@@ -589,6 +589,10 @@ def main_training_process(cfg, setup):
     if cfg.up.reset_betas:
         model_engine.optimizer.betas = cfg.up.betas
 
+    print('optimizer:')
+    print('    lr', model_engine.optimizer.lr)
+    print('    betas', model_engine.optimizer.betas)
+
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
 
