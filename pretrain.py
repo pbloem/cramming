@@ -586,7 +586,7 @@ def main_training_process(cfg, setup):
 
             # -- reuse the optimizer from the UP training
 
-    if cfg.uop.reset_betas:
+    if cfg.up.reset_betas:
         model_engine.optimizer.betas = cfg.up.betas
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
