@@ -590,8 +590,9 @@ def main_training_process(cfg, setup):
         model_engine.optimizer.betas = cfg.up.betas
 
     print('optimizer:')
-    print('    lr', model_engine.optimizer.lr)
     print('    betas', model_engine.optimizer.betas)
+    for i, g in enumerate(model_engine.optimizer.param_groups):
+        print('    lr', i, g['lr'])
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
