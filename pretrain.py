@@ -590,11 +590,6 @@ def main_training_process(cfg, setup):
         model_engine.optimizer.betas = cfg.up.betas
 
     print('optimizer:')
-    for g in opt.param_groups:
-        g['lr'] = cfg.up.lr
-        g['initial_lr'] = cfg.up.lr
-        g['weight_decay'] = cfg.up.weight_decay
-        g['betas'] = cfg.up.betas
     for i, g in enumerate(model_engine.optimizer.param_groups):
         print('    group', i)
         print('    lr', g['lr'])
