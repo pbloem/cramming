@@ -511,7 +511,15 @@ def estimate_compression(model, data, nsamples, context, batch_size, verbose=Fal
     return bits.item() / nsamples # total nr of bits used
 
 def main_training_process(cfg, setup):
-    """This function controls the central training loop."""
+    """
+    This function controls the central training loop.
+    """
+
+    # Log env vars to wandb
+    for key in os.environ:
+        if re.match(r"^NCCL|CUDA|PATH|^LD|USER|PWD|SLURM", key):
+            wandb.config[key] = os.getenv(key)
+
     local_time = time.time()
 
     opt_sd = None
@@ -801,11 +809,6 @@ def em_meanvar(x, mean=0, variance=0, alpha=0.5):
 
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
-
-    for key in os.environ:
-        if re.match(r"^NCCL|CUDA|PATH|^LD|USER|PWD|SLURM", key):
-            wandb.config[key] = os.getenv(key)
-
     cramming.utils.main_launcher(cfg, main_training_process, job_name="pretraining")
 
 def optimizer_to(optim, device):
