@@ -22,7 +22,7 @@ scheduler: budget-triangle2
 # Training settings:
 batch_size: 8192
 batch_size_ramp: 0.60 # in percentage points, i.e. training reaches the target 8192 at 60% of the total budget.
-min_batch_size: 0 # (UP addition), minimal batch size (if the scheduled batchs size is lower than this, it is reset to this)
+min_batch_size: 0 # (UP addition), minimal batch size (if the scheduled batch size is lower than this, it is reset to this)
 
 gradient_clipping: 0.5
 pretrain_in_train_mode: False # default BERT trains with dropout layers enabled in pretrain

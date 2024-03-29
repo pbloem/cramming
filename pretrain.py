@@ -7,7 +7,7 @@ import hydra
 
 import numpy as np
 
-import os
+import os, re
 import time
 import datetime
 import logging
@@ -332,6 +332,7 @@ def pretrain(cfg, setup):
                 loss = F.cross_entropy(output.transpose(2, 1), targets)
                 # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
                 #    -100 in 'targets', so that they get masked out.
+
             elif cfg.up.transfer == 'distill':
                 assert cfg.up.source_mode == 'nnsimple' or cfg.up.source_mode == 'nn'
 
@@ -343,6 +344,7 @@ def pretrain(cfg, setup):
                 assert tomask.size() == loss.size()
                 loss[tomask] *= cfg.up.loss_mask_scale
                 loss = loss.mean()
+
             else:
                 raise
 
@@ -799,6 +801,11 @@ def em_meanvar(x, mean=0, variance=0, alpha=0.5):
 
 @hydra.main(config_path="cramming/config", config_name="cfg_pretrain", version_base="1.1")
 def launch(cfg):
+
+    for key in os.environ:
+        if re.match(r"^NCCL|CUDA|PATH|^LD|USER|PWD|SLURM", key):
+            wandb.config[key] = os.getenv(key)
+
     cramming.utils.main_launcher(cfg, main_training_process, job_name="pretraining")
 
 def optimizer_to(optim, device):
