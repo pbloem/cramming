@@ -65,6 +65,8 @@ class TorchEngineMinimal(torch.nn.Module):
         """Load Engine. The model will be compiled by default."""
         super().__init__()
 
+        self.wandb = None # UP addition
+
         self.cfg_train = cfg_train
         self.cfg_impl = cfg_impl
         if self.cfg_impl.microbatch_size is None:
@@ -190,6 +192,9 @@ class TorchEngineMinimal(torch.nn.Module):
 
         # # UP Addition: set a minimum batch size to promote stability when re-using the optimizer state.
         new_batch_size = max(self.cfg_train.min_batch_size, new_batch_size)
+
+        if self.wandb is not None:
+            self.wandb.log({'batch_size': new_batch_size})
 
         self.set_train_batch_size(new_batch_size)
 

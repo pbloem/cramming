@@ -570,6 +570,8 @@ def main_training_process(cfg, setup):
         initial_step, elapsed_time = 0, 0.0
 
     model_engine, _, _, dataloader = cramming.load_backend(model, dataset, tokenizer, cfg.train, cfg.impl, elapsed_time, setup=setup)
+    model_engine.wandb = wandb
+
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
