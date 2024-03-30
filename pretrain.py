@@ -523,6 +523,7 @@ def main_training_process(cfg, setup):
     local_time = time.time()
 
     opt_sd = None
+    rmix = -1.0
     if cfg.up.enabled:
         if cfg.up.snapshot is None:
             model, opt = pretrain(cfg, setup)
@@ -553,7 +554,7 @@ def main_training_process(cfg, setup):
 
     else:
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-            rmix = -1.0
+
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
@@ -653,6 +654,7 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
+                'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
             })
