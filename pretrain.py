@@ -601,6 +601,9 @@ def main_training_process(cfg, setup):
     if cfg.up.reset_betas:
         model_engine.optimizer.betas = cfg.up.betas
 
+    if cfg.up.reset_wd:
+        model_engine.optimizer.weight_decay = cfg.train.optim.weight_decay
+
     print('optimizer:')
     for i, g in enumerate(model_engine.optimizer.param_groups):
         print('    group', i)
