@@ -602,13 +602,13 @@ def main_training_process(cfg, setup):
     if cfg.up.reset_betas:
         model_engine.optimizer.betas = cfg.up.betas
         for g in model_engine.optimizer.param_groups:
-            g.betas = cfg.up.betas
+            g['betas'] = cfg.up.betas
 
     # Reset weight decay to the value given in the cramming params
     if cfg.up.reset_wd:
         model_engine.optimizer.weight_decay = cfg.train.optim.weight_decay
         for g in model_engine.optimizer.param_groups:
-            g.weight_decay = cfg.train.optim.weight_decay
+            g['weight_decay'] = cfg.train.optim.weight_decay
 
     print('optimizer:')
     for i, g in enumerate(model_engine.optimizer.param_groups):
