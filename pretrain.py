@@ -571,6 +571,8 @@ def main_training_process(cfg, setup):
                                                      mlm_probability=cfg.up.mlm_probability,
                                                      use_80_20_rule=cfg.up.use_80_20_rule)
 
+                        inputs, targets = inputs.to(d()), targets.to(d())
+
                         output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
 
                         loss += F.cross_entropy(output.transpose(2, 1), targets).item()
