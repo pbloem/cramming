@@ -562,7 +562,7 @@ def main_training_process(cfg, setup):
                     for _ in trange(REPS):
                         # sample a batch
                         bidx = random.sample(k=BATCH, population=range(rbuffer.size(0)))
-                        batch = rbuffer[bidx]
+                        batch = rbuffer[bidx].to(d())
 
                         inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token,
                                                      mlm_probability=cfg.up.mlm_probability,
