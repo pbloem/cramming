@@ -558,6 +558,9 @@ def main_training_process(cfg, setup):
                 REPS, BATCH = 500, 32
                 # Check the loss of the snapshot on the researsal data
                 loss = 0.0
+
+                model.to('cuda')
+
                 with torch.no_grad():
                     for _ in trange(REPS):
                         # sample a batch
