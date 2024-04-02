@@ -573,7 +573,7 @@ def main_training_process(cfg, setup):
 
                         inputs, targets = inputs.to(d()), targets.to(d())
 
-                        output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+                        output = model(inputs)['outputs'].view(BATCH, context, -1)
 
                         loss += F.cross_entropy(output.transpose(2, 1), targets).item()
 
