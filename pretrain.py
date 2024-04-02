@@ -515,6 +515,8 @@ def main_training_process(cfg, setup):
     This function controls the central training loop.
     """
 
+    context = cfg.arch.embedding.max_seq_length
+
     # Log env vars to wandb
     for key in os.environ:
         if re.match(r"^NCCL|CUDA|PATH|^LD|USER|PWD|SLURM", key):
@@ -552,9 +554,30 @@ def main_training_process(cfg, setup):
             #    our DP training budget.
             rmix = cfg.up.up_mix
 
+            if cfg.up.snapshot is not None:
+                REPS, BATCH = 500, 32
+                # Check the loss of the snapshot on the researsal data
+                loss = 0.0
+                with torch.no_grad():
+                    for _ in trange(REPS):
+                        # sample a batch
+                        bidx = random.sample(k=BATCH, population=range(rbuffer.size(0)))
+                        batch = rbuffer[bidx]
+
+                        inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token,
+                                                     mlm_probability=cfg.up.mlm_probability,
+                                                     use_80_20_rule=cfg.up.use_80_20_rule)
+
+                        output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+
+                        loss += F.cross_entropy(output.transpose(2, 1), targets).item()
+
+                    loss /= REPS
+                    print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
+
+
     else:
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
@@ -596,7 +619,6 @@ def main_training_process(cfg, setup):
             #    universal pretraining.
 
             model_engine.optimizer.load_state_dict(opt_sd)
-
             # -- reuse the optimizer from the UP training
 
     # Reset betas to the value given in the CL params
