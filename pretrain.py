@@ -658,8 +658,8 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
-        print(batch, keys)
         print(batch)
+        print(batch.keys())
         exit()
 
         if rmix > 0.0:
