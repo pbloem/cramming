@@ -671,7 +671,8 @@ def main_training_process(cfg, setup):
             bidx[random.sample(k=k, population=range(rbuffer.size(0)))] = 1.0
             bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            upbatch = rbuffer[bidx]
+            upbatch = rbuffer[bidx, :]
+            print(upbatch.size())
 
             upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
                                          use_80_20_rule=cfg.up.use_80_20_rule)
