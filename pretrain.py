@@ -554,31 +554,31 @@ def main_training_process(cfg, setup):
             #    our DP training budget.
             rmix = cfg.up.up_mix
 
-            if cfg.up.snapshot is not None:
-                REPS, BATCH = 500, 32
-                # Check the loss of the snapshot on the researsal data
-                loss = 0.0
-
-                model.to('cuda')
-
-                with torch.no_grad():
-                    for _ in trange(REPS):
-                        # sample a batch
-                        bidx = random.sample(k=BATCH, population=range(rbuffer.size(0)))
-                        batch = rbuffer[bidx].to(d())
-
-                        inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token,
-                                                     mlm_probability=cfg.up.mlm_probability,
-                                                     use_80_20_rule=cfg.up.use_80_20_rule)
-
-                        inputs, targets = inputs.to(d()), targets.to(d())
-
-                        output = model(inputs)['outputs'].view(BATCH, context, -1)
-
-                        loss += F.cross_entropy(output.transpose(2, 1), targets).item()
-
-                    loss /= REPS
-                    print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
+            # if cfg.up.snapshot is not None:
+            #     REPS, BATCH = 500, 32
+            #     # Check the loss of the snapshot on the researsal data
+            #     loss = 0.0
+            #
+            #     model.to('cuda')
+            #
+            #     with torch.no_grad():
+            #         for _ in trange(REPS):
+            #             # sample a batch
+            #             bidx = random.sample(k=BATCH, population=range(rbuffer.size(0)))
+            #             batch = rbuffer[bidx].to(d())
+            #
+            #             inputs, targets = mask_batch(batch, mask_token=cfg.up.mask_token,
+            #                                          mlm_probability=cfg.up.mlm_probability,
+            #                                          use_80_20_rule=cfg.up.use_80_20_rule)
+            #
+            #             inputs, targets = inputs.to(d()), targets.to(d())
+            #
+            #             output = model(inputs)['outputs'].view(BATCH, context, -1)
+            #
+            #             loss += F.cross_entropy(output.transpose(2, 1), targets).item()
+            #
+            #         loss /= REPS
+            #         print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
 
 
     else:
