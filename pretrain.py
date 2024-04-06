@@ -73,7 +73,7 @@ def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_prob
             indices_random = torch.zeros_like(inputs, dtype=torch.bool)
             indices_random.scatter_(1, next_10percent_mask_locations, 1)
 
-            random_words = torch.randint(num_tokens, labels.shape, dtype=inputs.dtype, device=d())
+            random_words = torch.randint(num_tokens, labels.shape, dtype=inputs.dtype, device=inputs.device)
             inputs[indices_random] = random_words[indices_random]
 
             # The rest of the time (10% of the time) we keep the masked input tokens unchanged
@@ -672,7 +672,7 @@ def main_training_process(cfg, setup):
             bidx = torch.tensor(random.sample(k=k, population=range(rbuffer.size(0))))
             # bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            upbatch = rbuffer[bidx, :].to(d())
+            upbatch = rbuffer[bidx, :]
             upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
                                          use_80_20_rule=cfg.up.use_80_20_rule)
 
