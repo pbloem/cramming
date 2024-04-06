@@ -672,9 +672,7 @@ def main_training_process(cfg, setup):
             bidx = torch.tensor(random.sample(k=k, population=range(rbuffer.size(0))))
             # bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            upbatch = rbuffer[bidx, :]
-            print(upbatch.size())
-
+            upbatch = rbuffer[bidx, :].to(d())
             upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
                                          use_80_20_rule=cfg.up.use_80_20_rule)
 
