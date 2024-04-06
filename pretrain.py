@@ -664,12 +664,13 @@ def main_training_process(cfg, setup):
             # Select some random ids in the batch
             idx = torch.bernoulli(torch.full(fill_value=rmix, size=(b, )))
             k = int(idx.sum().item())
-            idx = idx[:, None].to(torch.bool).expand(b, l)
+            idx = idx.nonzero() # convert to indices
+            # idx = idx[:, None].to(torch.bool).expand(b, l)
 
             # And the same number of random ids in the buffer
-            bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0), ))
-            bidx[random.sample(k=k, population=range(rbuffer.size(0)))] = 1.0
-            bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
+            # bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0), ))
+            bidx = torch.tensor(random.sample(k=k, population=range(rbuffer.size(0))))
+            # bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
             upbatch = rbuffer[bidx, :]
             print(upbatch.size())
