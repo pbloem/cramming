@@ -676,10 +676,10 @@ def main_training_process(cfg, setup):
             upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
                                          use_80_20_rule=cfg.up.use_80_20_rule)
 
-            print(batch['input_ids'][idx].size(), upinputs.size())
+            # print(batch['input_ids'][idx].size(), upinputs.size())
 
-            batch['input_ids'][idx] = upinputs
-            batch['labels'][idx] = uptargets
+            batch['input_ids'][idx] = upinputs[:, None, :]
+            batch['labels'][idx] = uptargets[:, None, :]
 
             rmix -= cfg.up.up_mix_decay
 
