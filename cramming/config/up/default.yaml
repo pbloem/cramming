@@ -54,3 +54,4 @@ up_mix_decay: 0.0      # This is subtracted from the up_mix every batch to decay
 nrehearsal: 10_000     # Number of UP batches to generate for the rehearsal phase
 reset_betas: false     # Reset the betas after UP, to the value of `betas`
 reset_wd: false        # Reset the weight decay parameter of the optimizer to the Cramming value
+manual: false          # Do the DP training manually, bypassing the cramming engine.

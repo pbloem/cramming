@@ -658,6 +658,10 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
+        print(batch, keys)
+        print(batch)
+        exit()
+
         if rmix > 0.0:
             b, l = batch['input_ids'].size()
 
@@ -673,10 +677,20 @@ def main_training_process(cfg, setup):
 
             rmix -= cfg.up.up_mix_decay
 
-        # Heavy lifting is moved to engines
-        device_batch = model_engine.to_device(batch)
-        loss = model_engine.step(device_batch)
-        loss_vals.append(loss.detach())
+        if cfg.up.manual:
+            # Manually run the batch through the model in the same way as it was done during UP
+            with (torch.cuda.amp.autocast()):
+                output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
+
+            loss = F.cross_entropy(output.transpose(2, 1), targets)
+            # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
+            #    -100 in 'targets', so that they get masked out.
+
+        else:
+            # Heavy lifting is moved to engines
+            device_batch = model_engine.to_device(batch)
+            loss = model_engine.step(device_batch)
+            loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:
             wandb.log({
@@ -692,31 +706,33 @@ def main_training_process(cfg, setup):
             log.info("Reached deadline. Stopping training ...")
 
         # Collect stats and print to console and upload to wandb
-        if step % cfg.impl.print_loss_every_nth_step == 0:
-            loss_vals, train_time = collect_stats(step, loss_vals, train_time, stats, model_engine, dataloader, cfg)
-            if check_early_termination(wallclock_timer, stats["loss"][-1], cfg.impl.early_termination):
-                training_allowed = False
-                log.info("Loss higher than allowed threshold. Stopping training early...")
+        if not cfg.up.manual:
+            if step % cfg.impl.print_loss_every_nth_step == 0:
+                loss_vals, train_time = collect_stats(step, loss_vals, train_time, stats, model_engine, dataloader, cfg)
+                if check_early_termination(wallclock_timer, stats["loss"][-1], cfg.impl.early_termination):
+                    training_allowed = False
+                    log.info("Loss higher than allowed threshold. Stopping training early...")
 
-        # Checkpointing is triggered from stopping criteria and normal intervals
-        if cfg.impl.save_intermediate_checkpoints and step % cfg.impl.save_every_nth_step == 0:
-            if loss.detach().isfinite() and cramming.utils.is_main_process() and not cfg.dryrun:
-                model_engine.save_training_checkpoint(checkpoint_rendevous, metadata=dict(step=step, elapsed=time.time() - wallclock_timer))
+            # Checkpointing is triggered from stopping criteria and normal intervals
+            if cfg.impl.save_intermediate_checkpoints and step % cfg.impl.save_every_nth_step == 0:
+                if loss.detach().isfinite() and cramming.utils.is_main_process() and not cfg.dryrun:
+                    model_engine.save_training_checkpoint(checkpoint_rendevous, metadata=dict(step=step, elapsed=time.time() - wallclock_timer))
 
-        if not loss.detach().isfinite():
-            training_allowed, no_recovery_necessary = engage_troubleshooting(
-                model_engine, step, training_allowed, no_recovery_necessary, cfg
-            )
+            if not loss.detach().isfinite():
+                training_allowed, no_recovery_necessary = engage_troubleshooting(
+                    model_engine, step, training_allowed, no_recovery_necessary, cfg
+                )
 
-        communicate_flags(training_allowed, no_recovery_necessary)
+            communicate_flags(training_allowed, no_recovery_necessary)
 
         if (cfg.dryrun and step > 2) or not training_allowed:
             break
 
-        if not no_recovery_necessary:  # synced across devices
-            log.info(f"Attempting reload of checkpoint on device {cfg.impl.local_rank}.")
-            model_engine.load_training_checkpoint(checkpoint_rendevous)
-            no_recovery_necessary = True
+        if not cfg.up.manual:
+            if not no_recovery_necessary:  # synced across devices
+                log.info(f"Attempting reload of checkpoint on device {cfg.impl.local_rank}.")
+                model_engine.load_training_checkpoint(checkpoint_rendevous)
+                no_recovery_necessary = True
 
     # Save to summary:
     cramming.utils.save_summary("pretrain", cfg, stats, time.time() - local_time, setup)
