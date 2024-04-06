@@ -229,7 +229,6 @@ def data_generator(num_tokens, cfg):
 
             yield batch
 
-
 def pretrain(cfg, setup):
 
     print('Start universal pretraining.')
@@ -288,6 +287,7 @@ def pretrain(cfg, setup):
         # -- By how much to increase the warmup per instance
     else:
         acc = cfg.up.accumulate
+
     mbatch_size = 0 # size of the current macrobatch
 
     context = cfg.arch.embedding.max_seq_length
@@ -658,22 +658,26 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
-        print(batch)
-        print(batch.keys())
-        exit()
-
         if rmix > 0.0:
             b, l = batch['input_ids'].size()
 
+            # Select some random ids in the batch
             idx = torch.bernoulli(torch.full(fill_value=rmix, size=(b, )))
             k = int(idx.sum().item())
             idx = idx[:, None].to(torch.bool).expand(b, l)
 
+            # And the same number of random ids in the buffer
             bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0), ))
             bidx[random.sample(k=k, population=range(rbuffer.size(0)))] = 1.0
             bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            batch['input_ids'][idx] = rbuffer[bidx]
+            upbatch = rbuffer[bidx]
+
+            upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
+                                         use_80_20_rule=cfg.up.use_80_20_rule)
+
+            batch['input_ids'][idx] = upinputs
+            batch['labels'][idx] = uptargets
 
             rmix -= cfg.up.up_mix_decay
 
