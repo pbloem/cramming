@@ -685,12 +685,11 @@ def main_training_process(cfg, setup):
 
             rmix -= cfg.up.up_mix_decay
 
-        else:
-            # Heavy lifting is moved to engines
-            device_batch = model_engine.to_device(batch)
-            loss = model_engine.step(device_batch, reduction='none')
-            loss = loss.mean()
-            loss_vals.append(loss.detach())
+        # Heavy lifting is moved to engines
+        device_batch = model_engine.to_device(batch)
+        loss = model_engine.step(device_batch, reduction='none')
+        loss = loss.mean()
+        loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:
             wandb.log({
