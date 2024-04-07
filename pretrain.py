@@ -685,19 +685,11 @@ def main_training_process(cfg, setup):
 
             rmix -= cfg.up.up_mix_decay
 
-        if cfg.up.manual:
-            # Manually run the batch through the model in the same way as it was done during UP
-            with (torch.cuda.amp.autocast()):
-                output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
-
-            loss = F.cross_entropy(output.transpose(2, 1), targets)
-            # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
-            #    -100 in 'targets', so that they get masked out.
-
         else:
             # Heavy lifting is moved to engines
             device_batch = model_engine.to_device(batch)
-            loss = model_engine.step(device_batch)
+            loss = model_engine.step(device_batch, reduction='none')
+            loss = loss.mean()
             loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:

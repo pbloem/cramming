@@ -119,13 +119,13 @@ class TorchEngineMinimal(torch.nn.Module):
         self.initial_time = time.time() - already_elapsed_time
         self.optimizer, self.scheduler = _load_optimizer(model, cfg_train, cfg_impl, self.initial_time)
 
-    def step(self, batch: dict[str, torch.Tensor]):
+    def step(self, batch: dict[str, torch.Tensor], reduction='mean'):
 
         self.accumulated_samples += self.effective_mbs
         context = self.model.no_sync if self.accumulated_samples < self.current_batch_size else nullcontext
 
         with context():
-            loss = self.forward(**batch)["loss"]
+            loss = self.forward(reduction=reduction, **batch)["loss"]
             self.backward(loss)
             self.optimizer_step()
 
