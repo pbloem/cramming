@@ -664,22 +664,24 @@ def main_training_process(cfg, setup):
             # Select some random ids in the batch
             idx = torch.bernoulli(torch.full(fill_value=rmix, size=(b, )))
             k = int(idx.sum().item())
-            idx = idx.nonzero() # convert to indices
-            # idx = idx[:, None].to(torch.bool).expand(b, l)
 
-            # And the same number of random ids in the buffer
-            # bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0), ))
-            bidx = torch.tensor(random.sample(k=k, population=range(rbuffer.size(0))))
-            # bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
+            if k > 0:
+                idx = idx.nonzero() # convert to indices
+                # idx = idx[:, None].to(torch.bool).expand(b, l)
 
-            upbatch = rbuffer[bidx, :]
-            upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
-                                         use_80_20_rule=cfg.up.use_80_20_rule)
+                # And the same number of random ids in the buffer
+                # bidx = torch.full(fill_value=0.0, size=(rbuffer.size(0), ))
+                bidx = torch.tensor(random.sample(k=k, population=range(rbuffer.size(0))))
+                # bidx = bidx[:, None].to(torch.bool).expand(rbuffer.size(0), l)
 
-            # print(batch['input_ids'][idx].size(), upinputs.size())
+                upbatch = rbuffer[bidx, :]
+                upinputs, uptargets = mask_batch(upbatch, mask_token=cfg.up.mask_token, mlm_probability=cfg.up.mlm_probability,
+                                             use_80_20_rule=cfg.up.use_80_20_rule)
 
-            batch['input_ids'][idx] = upinputs[:, None, :]
-            batch['labels'][idx] = uptargets[:, None, :]
+                # print(batch['input_ids'][idx].size(), upinputs.size())
+
+                batch['input_ids'][idx] = upinputs[:, None, :]
+                batch['labels'][idx] = uptargets[:, None, :]
 
             rmix -= cfg.up.up_mix_decay
 
