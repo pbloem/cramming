@@ -188,7 +188,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
                 self.cfg.num_transformer_layers,
             )
 
-    def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, **kwargs):
+    def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
@@ -197,9 +197,9 @@ class ScriptableLMForPreTraining(PreTrainedModel):
         else:
             outputs = self.decoder(self.prediction_head(outputs))
             if labels is not None:
-                masked_lm_loss = self.loss_fn(outputs, labels.view(-1))
+                masked_lm_loss = self.loss_fn(outputs, labels.view(-1), reduction=reduction)
             else:
-                masked_lm_loss = outputs.new_zeros((1,))
+                masked_lm_loss = outputs.new_zeros((1,), reduction=reduction)
 
         return {"loss": masked_lm_loss, "outputs": outputs}
 
