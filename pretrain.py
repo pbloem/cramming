@@ -692,7 +692,7 @@ def main_training_process(cfg, setup):
         device_batch = model_engine.to_device(batch)
         loss = model_engine.step(device_batch, reduction='none')
 
-        with torch.nograd():
+        with torch.no_grad():
             up_loss = loss[bidx, :].mean() if batchmodded else 0.0
             pile_loss = (loss.sum() - loss[bidx, :].sum()) / (b - k) if batchmodded else loss.mean()
             # Extract the loss only over the UP part of the data and only over the pile part of the data.
