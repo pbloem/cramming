@@ -658,6 +658,7 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
+        batchmodded = False
         if rmix > 0.0:
             b, l = batch['input_ids'].size()
 
@@ -683,17 +684,28 @@ def main_training_process(cfg, setup):
                 batch['input_ids'][idx] = upinputs[:, None, :]
                 batch['labels'][idx] = uptargets[:, None, :]
 
+                batchmodded = True
+
             rmix -= cfg.up.up_mix_decay
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
         loss = model_engine.step(device_batch, reduction='none')
+
+        with torch.nograd():
+            up_loss = loss[bidx, :].mean() if batchmodded else 0.0
+            pile_loss = (loss.sum() - loss[bidx, :].sum()) / (b - k) if batchmodded else loss.mean()
+            # Extract the loss only over the UP part of the data and only over the pile part of the data.
+
         loss = loss.mean()
+
         loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
+                'dp-loss-up': up_loss.item(),
+                'dp-loss-pile': pile_loss.item(),
                 'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
