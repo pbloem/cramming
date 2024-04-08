@@ -201,12 +201,8 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
             if labels is not None:
                 masked_lm_loss = self.loss_fn(outputs, labels.view(-1))
-                print(masked_lm_loss.size())
             else:
                 masked_lm_loss = outputs.new_zeros((1,))
-
-        print(masked_lm_loss.size())
-        exit()
 
         return {"loss": masked_lm_loss, "outputs": outputs}
 
