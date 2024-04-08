@@ -659,9 +659,10 @@ def main_training_process(cfg, setup):
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
+        b, l = batch['input_ids'].size()
+
         batchmodded = False
         if rmix > 0.0:
-            b, l = batch['input_ids'].size()
 
             # Select some random ids in the batch
             idx = torch.bernoulli(torch.full(fill_value=rmix, size=(b, )))
@@ -692,7 +693,9 @@ def main_training_process(cfg, setup):
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
         loss = model_engine.step(device_batch)
-        loss = loss.view(b, l)
+        loss = loss.view(b, int(l * .25))
+        # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
+        #    over just these tokens to speed up oprocessing.
 
         with torch.no_grad():
             print(loss.size())
