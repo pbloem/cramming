@@ -191,15 +191,12 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
 
-        print('In ScriptableLMForPreTraining')
-        print(self.loss_fn)
-        print('reduction', reduction)
-
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
         if self.sparse_prediction and labels is not None:
-            masked_lm_loss = self._forward_sparse(outputs, labels)
+            print('sparse')
+            masked_lm_loss = self._forward_sparse(outputs, labels, reduction=reduction)
         else:
             outputs = self.decoder(self.prediction_head(outputs))
 
@@ -209,6 +206,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
             else:
                 masked_lm_loss = outputs.new_zeros((1,), reduction=reduction)
 
+        print(masked_lm_loss.size())
         exit()
 
         return {"loss": masked_lm_loss, "outputs": outputs}
@@ -216,7 +214,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
     # Sparse prediction usually has an unpredictable number of entries in each batch
     # but the dataloader was modified so that 25% of the batch is ALWAYS masked.
     # This allows for static compilation. If you modify the dataloader, this function will fill your compile cache
-    def _forward_sparse(self, outputs: torch.Tensor, labels: Optional[torch.Tensor] = None):
+    def _forward_sparse(self, outputs: torch.Tensor, labels: Optional[torch.Tensor] = None, reduction='mean'):
 
         labels = labels.view(-1)
         mask_positions = labels.view(-1) != self.loss_fn.ignore_index
@@ -235,7 +233,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
         # labels = torch.take(labels, indices)
 
         outputs = self.decoder(self.prediction_head(outputs))
-        masked_lm_loss = self.loss_fn(outputs, labels)
+        masked_lm_loss = self.loss_fn(outputs, labels, reduction=reduction)
         return masked_lm_loss
 
 
