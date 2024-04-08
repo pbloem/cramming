@@ -137,6 +137,9 @@ class ScriptableLM(PreTrainedModel):
             self.final_norm = torch.nn.Identity()
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None):
+        print('In', type(self))
+        exit()
+
         if attention_mask is not None:
             attention_mask = get_extended_attention_mask(attention_mask, input_ids.shape, self.use_causal_attention)
         hidden_states = self.embedding(input_ids)
@@ -189,6 +192,10 @@ class ScriptableLMForPreTraining(PreTrainedModel):
             )
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
+
+        print('In', type(self))
+        exit()
+
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
