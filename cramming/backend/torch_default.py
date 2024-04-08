@@ -145,9 +145,6 @@ class TorchEngineMinimal(torch.nn.Module):
         return device_batch
 
     def forward(self, *inputs, **kwargs):
-
-        print(kwargs['reduction'])
-
         with torch.autocast(**self.amp_settings):
             return self.model(*inputs, **kwargs)
 
