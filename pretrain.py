@@ -693,7 +693,7 @@ def main_training_process(cfg, setup):
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
         loss = model_engine.step(device_batch)
-        loss = loss.reshape(b, int(l * .25))
+        loss = loss.reshape(b, int(l * .25)).to_dense()
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up oprocessing.
 
