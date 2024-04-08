@@ -191,6 +191,10 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
 
+        print('In ScriptableLMForPreTraining')
+        print(self.loss_fn)
+        print('reduction', reduction)
+
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
@@ -201,8 +205,11 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
             if labels is not None:
                 masked_lm_loss = self.loss_fn(outputs, labels.view(-1), reduction=reduction)
+                print(masked_lm_loss.size())
             else:
                 masked_lm_loss = outputs.new_zeros((1,), reduction=reduction)
+
+        exit()
 
         return {"loss": masked_lm_loss, "outputs": outputs}
 
