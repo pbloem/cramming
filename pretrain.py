@@ -691,7 +691,7 @@ def main_training_process(cfg, setup):
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
-        loss = model_engine.step(device_batch, reduction='none')
+        loss = model_engine.step(device_batch)
 
         with torch.no_grad():
             print(loss.size())

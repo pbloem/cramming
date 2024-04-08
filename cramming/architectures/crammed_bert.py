@@ -173,7 +173,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
         self.decoder = torch.nn.Linear(self.cfg.embedding.embedding_dim, self.cfg.embedding.vocab_size, bias=self.cfg.decoder_bias)
         self.decoder.weight = self.encoder.embedding.word_embedding.weight
 
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
         self.sparse_prediction = self.cfg.sparse_prediction
 
         self._init_weights()
@@ -189,22 +189,21 @@ class ScriptableLMForPreTraining(PreTrainedModel):
                 self.cfg.num_transformer_layers,
             )
 
-    def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
+    def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, **kwargs):
 
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
         if self.sparse_prediction and labels is not None:
-            print('sparse')
-            masked_lm_loss = self._forward_sparse(outputs, labels, reduction=reduction)
+            masked_lm_loss = self._forward_sparse(outputs, labels)
         else:
             outputs = self.decoder(self.prediction_head(outputs))
 
             if labels is not None:
-                masked_lm_loss = self.loss_fn(outputs, labels.view(-1), reduction=reduction)
+                masked_lm_loss = self.loss_fn(outputs, labels.view(-1))
                 print(masked_lm_loss.size())
             else:
-                masked_lm_loss = outputs.new_zeros((1,), reduction=reduction)
+                masked_lm_loss = outputs.new_zeros((1,))
 
         print(masked_lm_loss.size())
         exit()
@@ -214,7 +213,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
     # Sparse prediction usually has an unpredictable number of entries in each batch
     # but the dataloader was modified so that 25% of the batch is ALWAYS masked.
     # This allows for static compilation. If you modify the dataloader, this function will fill your compile cache
-    def _forward_sparse(self, outputs: torch.Tensor, labels: Optional[torch.Tensor] = None, reduction='mean'):
+    def _forward_sparse(self, outputs: torch.Tensor, labels: Optional[torch.Tensor] = None):
 
         labels = labels.view(-1)
         mask_positions = labels.view(-1) != self.loss_fn.ignore_index
@@ -235,7 +234,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
         outputs = self.decoder(self.prediction_head(outputs))
 
         print(self.loss_fn)
-        masked_lm_loss = self.loss_fn(outputs, labels, reduction=reduction)
+        masked_lm_loss = self.loss_fn(outputs, labels)
 
         return masked_lm_loss
 
