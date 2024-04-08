@@ -693,15 +693,15 @@ def main_training_process(cfg, setup):
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
         loss = model_engine.step(device_batch)
-        loss = loss.reshape(b, int(l * .25)).to_dense()
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up oprocessing.
 
         print(loss.size(), type(loss))
 
         with torch.no_grad():
-            up_loss = loss[bidx, :].mean() if batchmodded else 0.0
-            pile_loss = (loss.sum() - loss[bidx, :].sum()) / (b - k) if batchmodded else loss.mean()
+            loss = loss.reshape(b, int(l * .25)).sum(dim=1)
+            up_loss = loss[bidx].sum() / (k * l) if batchmodded else 0.0
+            pile_loss = (loss.sum() - loss[bidx].sum()) / ((b - k) * l) if batchmodded else loss.mean()
             # Extract the loss only over the UP part of the data and only over the pile part of the data.
 
         loss = loss.mean()
