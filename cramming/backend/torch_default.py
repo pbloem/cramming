@@ -130,7 +130,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
         with context():
             loss = self.forward(**batch)["loss"]
-            self.backward(loss)
+            self.backward(loss.mean())
             self.optimizer_step()
 
         return loss.detach()
