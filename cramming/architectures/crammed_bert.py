@@ -233,7 +233,10 @@ class ScriptableLMForPreTraining(PreTrainedModel):
         # labels = torch.take(labels, indices)
 
         outputs = self.decoder(self.prediction_head(outputs))
+
+        print(self.loss_fn)
         masked_lm_loss = self.loss_fn(outputs, labels, reduction=reduction)
+
         return masked_lm_loss
 
 
