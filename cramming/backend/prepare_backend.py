@@ -11,9 +11,9 @@ from .deepspeed_integration import initialize_deepspeed
 _default_setup = dict(device=torch.device("cpu"), dtype=torch.float)
 
 
-def load_backend(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time=0.0, setup=_default_setup):
+def load_backend(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time=0.0, setup=_default_setup, compile=True):
     if cfg_impl.name == "torch-default":
-        return initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=setup)
+        return initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=setup, compile=compile)
     elif cfg_impl.name == "deepspeed":
         return initialize_deepspeed(model, dataset, tokenizer, cfg_train, cfg_impl, setup=setup)  # cannot resume
     else:
