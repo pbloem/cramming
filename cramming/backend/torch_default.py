@@ -144,6 +144,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
         print(kwargs)
         print(kwargs['reduction'])
+        print(type(self.model))
         exit()
 
         with torch.autocast(**self.amp_settings):
