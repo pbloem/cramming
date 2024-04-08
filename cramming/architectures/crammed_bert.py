@@ -137,8 +137,6 @@ class ScriptableLM(PreTrainedModel):
             self.final_norm = torch.nn.Identity()
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None):
-        print('In', type(self))
-        exit()
 
         if attention_mask is not None:
             attention_mask = get_extended_attention_mask(attention_mask, input_ids.shape, self.use_causal_attention)
@@ -193,9 +191,6 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, reduction='mean', **kwargs):
 
-        print('In', type(self))
-        exit()
-
         outputs = self.encoder(input_ids, attention_mask)
         outputs = outputs.view(-1, outputs.shape[-1])
 
@@ -203,6 +198,7 @@ class ScriptableLMForPreTraining(PreTrainedModel):
             masked_lm_loss = self._forward_sparse(outputs, labels)
         else:
             outputs = self.decoder(self.prediction_head(outputs))
+
             if labels is not None:
                 masked_lm_loss = self.loss_fn(outputs, labels.view(-1), reduction=reduction)
             else:
