@@ -37,7 +37,7 @@ import warnings
 warnings.filterwarnings("ignore", "Detected call of ", UserWarning)  # schedulers are deliberately used differently
 
 
-def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=_default_setup):
+def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=_default_setup, compile=True):
     """initialize a torch engine."""
     if dataset is not None:
         dataloader = prepare_pretraining_dataloader(dataset, tokenizer, cfg_train, cfg_impl)
@@ -48,9 +48,9 @@ def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_tim
     require_full_engine = "sequence_curriculum" in cfg_train or "weight_averaging" in cfg_train or "gradinit" in cfg_train
 
     if require_full_engine:
-        model_engine = TorchEngineFull(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length)
+        model_engine = TorchEngineFull(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length, compile=compile)
     else:
-        model_engine = TorchEngineMinimal(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length)
+        model_engine = TorchEngineMinimal(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length, compile=compile)
     model_engine.train()  # This is the default engine state. Pretraining scripts may change this.
     return model_engine, model_engine.optimizer, model_engine.scheduler, dataloader
 
@@ -91,6 +91,7 @@ class TorchEngineMinimal(torch.nn.Module):
         from ..utils import flatten
 
         if compile:
+            print('Compiling model.')
             model = torch.compile(
                 model,
                 mode=self.cfg_impl.mode,
@@ -101,6 +102,8 @@ class TorchEngineMinimal(torch.nn.Module):
                 # detailed options; cannot be given at the same time as mode:
                 options=flatten(cfg_impl._inductor_vars, parent_key="", sep=".") if cfg_impl._inductor_vars is not None else None,
             )
+        else:
+            print('Not compiling model.')
 
         if torch.distributed.is_initialized():
             self.model = self._init_distributed(model)
@@ -382,9 +385,9 @@ class TorchEngineFull(TorchEngineMinimal):
     See TorchEngineFull for more modifications.
     """
 
-    def __init__(self, model, cfg_train, cfg_impl, setup=_default_setup, seq_length=128):
+    def __init__(self, model, cfg_train, cfg_impl, setup=_default_setup, seq_length=128, compile=True):
         """Load Engine. The model will be compiled by default."""
-        super().__init__(model, cfg_train, cfg_impl, setup, seq_length)
+        super().__init__(model, cfg_train, cfg_impl, setup, seq_length, compile=compile)
 
         # Optional sequence curriculum:
         self.sequence_curriculum = "sequence_curriculum" in cfg_train
