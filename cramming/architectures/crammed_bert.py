@@ -229,7 +229,6 @@ class ScriptableLMForPreTraining(PreTrainedModel):
 
         outputs = self.decoder(self.prediction_head(outputs))
 
-        print(self.loss_fn)
         masked_lm_loss = self.loss_fn(outputs, labels)
 
         return masked_lm_loss
