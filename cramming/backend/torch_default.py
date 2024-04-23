@@ -123,13 +123,19 @@ class TorchEngineMinimal(torch.nn.Module):
         self.initial_time = time.time() - already_elapsed_time
         self.optimizer, self.scheduler = _load_optimizer(model, cfg_train, cfg_impl, self.initial_time)
 
-    def step(self, batch: dict[str, torch.Tensor]):
+    def step(self, batch: dict[str, torch.Tensor], guide=None, alpha=0.0):
 
         self.accumulated_samples += self.effective_mbs
         context = self.model.no_sync if self.accumulated_samples < self.current_batch_size else nullcontext
 
         with context():
             loss = self.forward(**batch)["loss"]
+
+            if guide is not None:
+                # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
+                aux = aux_loss(self.model, guide) # L2 norm
+                loss += alpha * aux
+
             self.backward(loss.mean())
             self.optimizer_step()
 
@@ -611,3 +617,20 @@ def _load_optimizer(model, cfg_train, cfg_impl, initial_time):
     scheduler = get_schedule_fn(initial_time, cfg_train)(optimizer_to_schedule)
 
     return optimizer, scheduler
+
+
+def aux_loss(model, guide):
+    """
+    Computes the squared distance in parameter space between two models. Requires that the models have the _exact_ same
+    architecture.
+
+    :param model:
+    :param guide:
+    :return:
+    """
+
+    sum = 0.0
+    for p1, p2 in zip(model.parameters(), guide.parameters()):
+        sum = sum + (p1 - p2) ** 2
+
+    return sum

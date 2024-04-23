@@ -528,7 +528,9 @@ def main_training_process(cfg, setup):
     rmix = -1.0
     if cfg.up.enabled:
         if cfg.up.snapshot is None:
-            model, opt = pretrain(cfg, setup)
+            print(f'Pretraining UP model')
+
+            upmodel, opt = pretrain(cfg, setup)
             opt_sd = opt.state_dict()
 
         else:
@@ -537,10 +539,10 @@ def main_training_process(cfg, setup):
             model_sd = dct['model']
             opt_sd = dct['opt']
 
-            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-            model.load_state_dict(model_sd)
+            upmodel = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            upmodel.load_state_dict(model_sd)
 
-        if cfg.up.up_mix > 0.0:
+        if cfg.up.up_mix > 0.0: # rehearsal data
             # Preload a buffer of samples from the UP generator
             num_tokens = model.encoder.embedding.word_embedding.num_embeddings
             datagen = data_generator(num_tokens, cfg)
@@ -580,9 +582,17 @@ def main_training_process(cfg, setup):
             #         loss /= REPS
             #         print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
 
+        if cfg.up.use_aux_loss:
 
-    else:
+            # Freeze the UP model
+            for parm in upmodel.parameters():
+                parm.requires_grad = False
+
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+        else:
+            model = upmodel
+    else:
+        model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
     dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
@@ -606,7 +616,7 @@ def main_training_process(cfg, setup):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
-    if cfg.up.enabled and cfg.up.reuse_opt:
+    if cfg.up.enabled and cfg.up.reuse_opt: # transfer opt state
         with torch.no_grad():
             assert opt_sd is not None
 
@@ -662,6 +672,8 @@ def main_training_process(cfg, setup):
         b, l = batch['input_ids'].size()
 
         batchmodded = False
+
+        # Mix in rehearsal data
         if rmix > 0.0:
 
             # Select some random ids in the batch
@@ -692,9 +704,10 @@ def main_training_process(cfg, setup):
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
-        loss = model_engine.step(device_batch)
+        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=cfg.up.aux_alpha)
+        # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
-        #    over just these tokens to speed up oprocessing.
+        #    over just these tokens to speed up processing.
 
         with torch.no_grad():
             loss = loss.reshape(b, int(l * .25))

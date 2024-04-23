@@ -55,3 +55,5 @@ nrehearsal: 10_000     # Number of UP batches to generate for the rehearsal phas
 reset_betas: false     # Reset the betas after UP, to the value of `betas`
 reset_wd: false        # Reset the weight decay parameter of the optimizer to the Cramming value
 manual: false          # Do the DP training manually, bypassing the cramming engine.
+use_aux_loss: false    # Don't initialize from the pretrained weights, but use them as an auxiliary loss.
+aux_alpha: 1.0         # The multiplier for the auxiliary loss
