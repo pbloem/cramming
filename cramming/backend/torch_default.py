@@ -631,6 +631,6 @@ def aux_loss(model, guide):
 
     sum = 0.0
     for p1, p2 in zip(model.parameters(), guide.parameters()):
-        sum = sum + (p1 - p2) ** 2
+        sum = sum + ((p1 - p2) ** 2).sum()
 
     return sum
