@@ -544,7 +544,7 @@ def main_training_process(cfg, setup):
 
         if cfg.up.up_mix > 0.0: # rehearsal data
             # Preload a buffer of samples from the UP generator
-            num_tokens = model.encoder.embedding.word_embedding.num_embeddings
+            num_tokens = upmodel.encoder.embedding.word_embedding.num_embeddings
             datagen = data_generator(num_tokens, cfg)
 
             print('Preloading rehearsal data.'); tic()
