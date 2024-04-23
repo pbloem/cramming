@@ -306,8 +306,8 @@ class PatchedDataCollatorForLanguageModeling(transformers.DataCollatorForLanguag
         fixed_mask = input_ids.scatter(1, token_mask[:, :reduced_seq_length], -1) == -1
         return input_ids[fixed_mask].view(input_ids.shape[0], -1), labels[fixed_mask].view(input_ids.shape[0], -1)
 
-MAX_REC = 20
-SLEEP_TIME = 5
+MAX_REC = 200
+SLEEP_TIME = 5 * 60
 class InfiniteDataLoader(torch.utils.data.DataLoader):
     """Lazy copy-paste from https://gist.github.com/MFreidank/821cc87b012c53fade03b0c7aba13958."""
 
@@ -329,7 +329,17 @@ class InfiniteDataLoader(torch.utils.data.DataLoader):
             self.epoch_counter += 1
             if hasattr(self.sampler, "set_epoch"):
                 self.sampler.set_epoch(self.epoch_counter)
-            batch = next(self.dataset_iterator)
+
+            try:
+                batch = next(self.dataset_iterator)
+            except requests.exceptions.HTTPError as e: # HF server error
+                if rec < MAX_REC:
+                    warnings.warn(f'Encountered HTTP error. Waiting 5 seconds and trying again {rec}.')
+                    time.sleep(SLEEP_TIME)
+                    return self.__next__(rec + 1)
+                else:
+                    raise e
+
         except requests.exceptions.HTTPError as e: # HF server error
             if rec < MAX_REC:
                 warnings.warn(f'Encountered HTTP error. Waiting 5 seconds and trying again {rec}.')
