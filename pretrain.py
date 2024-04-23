@@ -724,12 +724,16 @@ def main_training_process(cfg, setup):
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
-                'dp-loss-up': up_loss.item(),
-                'dp-loss-pile': pile_loss.item(),
                 'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
             })
+
+            if rmix > 0.0:
+                wandb.log({
+                    'dp-loss-up': up_loss.item(),
+                    'dp-loss-pile': pile_loss.item(),
+                })
 
         # Check stopping criteria
         if check_deadline(wallclock_timer, cfg.budget) or step == cfg.train.steps:
