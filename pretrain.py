@@ -587,6 +587,7 @@ def main_training_process(cfg, setup):
             # Freeze the UP model
             for parm in upmodel.parameters():
                 parm.requires_grad = False
+            upmodel.to(d())
 
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
         else:
