@@ -332,17 +332,17 @@ class InfiniteDataLoader(torch.utils.data.DataLoader):
 
             try:
                 batch = next(self.dataset_iterator)
-            except requests.exceptions.HTTPError as e: # HF server error
-                if rec < MAX_REC:
-                    warnings.warn(f'Encountered HTTP error. Waiting 5 seconds and trying again {rec}.')
+            except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e: # HF server error
+                if rec < MAX_REC
+                    warnings.warn(f'Encountered HTTP error. Waiting {SLEEP_TIME} seconds and trying again ({rec}/{MAX_REC}).')
                     time.sleep(SLEEP_TIME)
                     return self.__next__(rec + 1)
                 else:
                     raise e
 
-        except requests.exceptions.HTTPError as e: # HF server error
+        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e: # HF server error
             if rec < MAX_REC:
-                warnings.warn(f'Encountered HTTP error. Waiting 5 seconds and trying again {rec}.')
+                warnings.warn(f'Encountered HTTP error. Waiting {SLEEP_TIME} seconds and trying again ({rec}/{MAX_REC}).')
                 time.sleep(SLEEP_TIME)
                 return self.__next__(rec+1)
             else:
