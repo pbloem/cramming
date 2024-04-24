@@ -711,10 +711,11 @@ def main_training_process(cfg, setup):
         #    over just these tokens to speed up processing.
 
         with torch.no_grad():
-            loss = loss.reshape(b, int(l * .25))
+            sl = int(l * .25)
+            loss = loss.reshape(b, sl)
 
-            up_loss = loss[idx, :].sum() / (k * l) if batchmodded else 0.0
-            pile_loss = (loss.sum() - loss[idx, :].sum()) / ((b - k) * l) if batchmodded else loss.mean()
+            up_loss = loss[idx, :].sum() / (k * sl) if batchmodded else torch.tensor(0.0)
+            pile_loss = (loss.sum() - loss[idx, :].sum()) / ((b - k) * sl) if batchmodded else loss.mean()
             # -- Extract the loss only over the UP part of the data and only over the pile part of the data.
 
         loss = loss.mean()
