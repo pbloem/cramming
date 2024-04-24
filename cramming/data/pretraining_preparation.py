@@ -20,19 +20,17 @@ from .curriculum_sorting import _sort_tokenized_dataset_by_unigram, _sort_tokeni
 from .deduplicate import deduplicate_huggingface_dataset
 from .utils import checksum_config, stage_dataset, detailed_OSError
 
-
 log = logging.getLogger(__name__)
 datasets.enable_progress_bar()
 datasets.disable_caching()  # We'll save only the final preprocessed dataset
 
-
-def load_pretraining_corpus(cfg_data, cfg_impl):
+def load_pretraining_corpus(cfg_data, cfg_impl, path='.'):
     """Load (and optionally stage) a pre-processed corpus. Create one if it doesn't exist."""
     datasets.disable_caching()
     checksum = checksum_config(cfg_data)
 
     processed_dataset_dir = f"{cfg_data.name}_{checksum}"
-    data_path = os.path.join(cfg_impl.path, processed_dataset_dir)
+    data_path = os.path.join(path, processed_dataset_dir)
     if list(cfg_data.sources.values())[0]["provider"] == "fake":
         # Shortcut for fake data
         return _load_fake_dataset(cfg_data, list(cfg_data.sources.values())[0], path=cfg_impl.path)

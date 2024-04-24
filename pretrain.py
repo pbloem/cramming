@@ -595,7 +595,7 @@ def main_training_process(cfg, setup):
     else:
         model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
-    dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl)
+    dataset, tokenizer = cramming.load_pretraining_corpus(cfg.data, cfg.impl, cfg.up.data_path)
     checkpoint_rendevous = os.path.join(cfg.base_dir, cfg.name, "intermediate_state.pth")
 
     if cfg.impl.resume_run_after_preempt and os.path.isfile(checkpoint_rendevous):
