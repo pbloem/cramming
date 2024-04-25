@@ -636,7 +636,7 @@ def aux_loss(model, guide, all=False):
 
     # Compute the loss only over the layer parameters (not the MLM head or the embeddings)
     sum = 0.0
-    for mod1, mod2 in zip(model.layers, guide.layers):
+    for mod1, mod2 in zip(model.encoder.layers, guide.encoder.layers):
         for p1, p2 in zip(mod1.parameters(), mod2.parameters()):
             sum = sum + ((p1 - p2) ** 2).sum()
 
