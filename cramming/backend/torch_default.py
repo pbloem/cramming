@@ -616,7 +616,7 @@ def _load_optimizer(model, cfg_train, cfg_impl, initial_time):
     return optimizer, scheduler
 
 
-def aux_loss(model, guide):
+def aux_loss(model, guide, all=False):
     """
     Computes the squared distance in parameter space between two models. Requires that the models have the _exact_ same
     architecture.
@@ -626,8 +626,18 @@ def aux_loss(model, guide):
     :return:
     """
 
+    if all:
+        # Compute the loss over all parameters
+        sum = 0.0
+        for p1, p2 in zip(model.parameters(), guide.parameters()):
+            sum = sum + ((p1 - p2) ** 2).sum()
+
+        return sum
+
+    # Compute the loss only over the layer parameters (not the MLM head or the embeddings)
     sum = 0.0
-    for p1, p2 in zip(model.parameters(), guide.parameters()):
-        sum = sum + ((p1 - p2) ** 2).sum()
+    for mod1, mod2 in zip(model.layers, guide.layers):
+        for p1, p2 in zip(mod1.parameters(), mod2.parameters()):
+            sum = sum + ((p1 - p2) ** 2).sum()
 
     return sum
