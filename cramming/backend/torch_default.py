@@ -37,7 +37,7 @@ import warnings
 warnings.filterwarnings("ignore", "Detected call of ", UserWarning)  # schedulers are deliberately used differently
 
 
-def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=_default_setup, compile=True):
+def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_time, setup=_default_setup):
     """initialize a torch engine."""
     if dataset is not None:
         dataloader = prepare_pretraining_dataloader(dataset, tokenizer, cfg_train, cfg_impl)
@@ -48,9 +48,9 @@ def initialize_torch(model, dataset, tokenizer, cfg_train, cfg_impl, elapsed_tim
     require_full_engine = "sequence_curriculum" in cfg_train or "weight_averaging" in cfg_train or "gradinit" in cfg_train
 
     if require_full_engine:
-        model_engine = TorchEngineFull(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length, compile=compile)
+        model_engine = TorchEngineFull(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length)
     else:
-        model_engine = TorchEngineMinimal(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length, compile=compile)
+        model_engine = TorchEngineMinimal(model, cfg_train, cfg_impl, elapsed_time, setup=setup, seq_length=tokenizer.model_max_length)
     model_engine.train()  # This is the default engine state. Pretraining scripts may change this.
     return model_engine, model_engine.optimizer, model_engine.scheduler, dataloader
 
