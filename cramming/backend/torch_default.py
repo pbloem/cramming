@@ -133,6 +133,8 @@ class TorchEngineMinimal(torch.nn.Module):
                 aux = aux_loss(self.model, guide) # L2 norm
                 loss += alpha * aux
 
+                self.wandb.log({'aux-loss' : aux.item()})
+
             self.backward(loss.mean())
             self.optimizer_step()
 
