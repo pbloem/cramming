@@ -61,7 +61,7 @@ class TorchEngineMinimal(torch.nn.Module):
     See TorchEngineFull for more modifications.
     """
 
-    def __init__(self, model, cfg_train, cfg_impl, already_elapsed_time=0.0, setup=_default_setup, seq_length=128, compile=True):
+    def __init__(self, model, cfg_train, cfg_impl, already_elapsed_time=0.0, setup=_default_setup, seq_length=128):
         """Load Engine. The model will be compiled by default."""
         super().__init__()
 
@@ -90,20 +90,17 @@ class TorchEngineMinimal(torch.nn.Module):
 
         from ..utils import flatten
 
-        if compile:
-            print('Compiling model.')
-            model = torch.compile(
-                model,
-                mode=self.cfg_impl.mode,
-                dynamic=self.cfg_impl.dynamic,
-                fullgraph=self.cfg_impl.fullgraph,
-                backend=self.cfg_impl.backend,
-                disable=not cfg_impl.compile_torch,
-                # detailed options; cannot be given at the same time as mode:
-                options=flatten(cfg_impl._inductor_vars, parent_key="", sep=".") if cfg_impl._inductor_vars is not None else None,
-            )
-        else:
-            print('Not compiling model.')
+        print('Compiling model.')
+        model = torch.compile(
+            model,
+            mode=self.cfg_impl.mode,
+            dynamic=self.cfg_impl.dynamic,
+            fullgraph=self.cfg_impl.fullgraph,
+            backend=self.cfg_impl.backend,
+            disable=not cfg_impl.compile_torch,
+            # detailed options; cannot be given at the same time as mode:
+            options=flatten(cfg_impl._inductor_vars, parent_key="", sep=".") if cfg_impl._inductor_vars is not None else None,
+        )
 
         if torch.distributed.is_initialized():
             self.model = self._init_distributed(model)
