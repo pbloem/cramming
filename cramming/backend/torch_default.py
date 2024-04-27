@@ -656,10 +656,8 @@ def aux_loss(model, guide, which='all'):
                 sum = sum + ((p1 - p2) ** 2).sum()
 
         # embeddings
-        for mod1, mod2 in zip(model.encoder.embedding, guide.encoder.embedding):
-            for p1, p2 in zip(mod1.parameters(), mod2.parameters()):
-                sum = sum + ((p1 - p2) ** 2).sum()
-        # -- model.encoder.embedding is a tuple with two EmbeddingComponents. Not sure why. If they refer to the same component,
-        #    we're counting that one double...
+        mod1, mod2 = model.encoder.embedding, guide.encoder.embedding
+        for p1, p2 in zip(mod1.parameters(), mod2.parameters()):
+            sum = sum + ((p1 - p2) ** 2).sum()
 
         return sum
