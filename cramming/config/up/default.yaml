@@ -57,5 +57,5 @@ reset_wd: false        # Reset the weight decay parameter of the optimizer to th
 manual: false          # Do the DP training manually, bypassing the cramming engine.
 use_aux_loss: false    # Don't initialize from the pretrained weights, but use them as an auxiliary loss.
 aux_alpha: 1.0         # The multiplier for the auxiliary loss
-aux_which: all         # Which parts of the model to compute aux loss over (all, layers only, layers and embeddings)
+which_aux: all         # Which parts of the model to compute aux loss over (all, layers only, layers and embeddings)
 data_path: '.'         # Where to store the dataset cache

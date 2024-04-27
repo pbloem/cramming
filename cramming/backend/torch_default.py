@@ -68,7 +68,6 @@ class TorchEngineMinimal(torch.nn.Module):
         self.wandb = None       # UP addition
         self.which_aux = None   # UP addition
 
-
         self.cfg_train = cfg_train
         self.cfg_impl = cfg_impl
         if self.cfg_impl.microbatch_size is None:
