@@ -657,6 +657,7 @@ def aux_loss(model, guide, which='all'):
 
         # embeddings
         mod1 = model.encoder.embedding, guide.encoder.embedding
+        print(mod1)
         for p1, p2 in zip(mod1.parameters(), mod2.parameters()):
             sum = sum + ((p1 - p2) ** 2).sum()
 
