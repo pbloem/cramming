@@ -65,7 +65,9 @@ class TorchEngineMinimal(torch.nn.Module):
         """Load Engine. The model will be compiled by default."""
         super().__init__()
 
-        self.wandb = None # UP addition
+        self.wandb = None       # UP addition
+        self.which_aux = None   # UP addition
+
 
         self.cfg_train = cfg_train
         self.cfg_impl = cfg_impl
@@ -130,7 +132,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
             if guide is not None:
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
-                aux = aux_loss(self.model, guide) # L2 norm
+                aux = aux_loss(self.model, guide, which=self.which_aux) # L2 norm
                 loss += alpha * aux
 
                 self.wandb.log({'aux-loss' : aux.item()})
