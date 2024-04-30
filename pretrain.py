@@ -726,7 +726,7 @@ def main_training_process(cfg, setup):
 
         loss = loss.mean()
 
-        loss_ema = loss_ema.item() * LOSS_EMA_GAMMA + loss.item() * (1.0 - LOSS_EMA_GAMMA)
+        loss_ema = loss_ema * LOSS_EMA_GAMMA + loss.item() * (1.0 - LOSS_EMA_GAMMA)
 
         loss_vals.append(loss.detach())
 
