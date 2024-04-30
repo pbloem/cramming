@@ -59,3 +59,4 @@ use_aux_loss: false    # Don't initialize from the pretrained weights, but use t
 aux_alpha: 1.0         # The multiplier for the auxiliary loss
 which_aux: all         # Which parts of the model to compute aux loss over (all, layers only, layers and embeddings)
 data_path: '.'         # Where to store the dataset cache
+early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of the loss gets below this value.

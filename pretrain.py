@@ -32,6 +32,9 @@ log = logging.getLogger(__name__)
 LOG2E = math.log2(math.e)
 LOGE2 = math.log(2.0)
 
+LOSS_EMA_START = 10.0 # start value for the loss EMA
+LOSS_EMA_GAMMA = 0.9  # mixture parameter for the loss EMA
+
 def mask_batch(inputs=None, num_tokens=32768, special_tokens_mask=None, mlm_probability=.15, use_80_20_rule=True,
                mask_token=4,
             ):
@@ -618,6 +621,8 @@ def main_training_process(cfg, setup):
         log.info(f"Loading intermediate checkpoint from previous run onto device {cfg.impl.local_rank}...")
         model_engine.load_training_checkpoint(checkpoint_rendevous)
 
+    loss_ema = LOSS_EMA_START
+
     if cfg.up.enabled and cfg.up.reuse_opt: # transfer opt state
         with torch.no_grad():
             assert opt_sd is not None
@@ -721,11 +726,14 @@ def main_training_process(cfg, setup):
 
         loss = loss.mean()
 
+        loss_ema = loss_ema * LOSS_EMA_GAMMA + loss * (1.0 - LOSS_EMA_GAMMA)
+
         loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
+                'dp-loss-ema': loss_ema.item(),
                 'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
@@ -736,6 +744,10 @@ def main_training_process(cfg, setup):
                     'dp-loss-up': up_loss.item(),
                     'dp-loss-pile': pile_loss.item(),
                 })
+
+        if cfg.up.early_stop > 0.0 and loss.ema < cfg.up.early_stop:
+            training_allowed = False
+            log.info(f"Reached early stopping threshold (loss {loss}, ema {loss_ema}). Stopping training ...")
 
         # Check stopping criteria
         if check_deadline(wallclock_timer, cfg.budget) or step == cfg.train.steps:
