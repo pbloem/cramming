@@ -726,14 +726,14 @@ def main_training_process(cfg, setup):
 
         loss = loss.mean()
 
-        loss_ema = loss_ema * LOSS_EMA_GAMMA + loss * (1.0 - LOSS_EMA_GAMMA)
+        loss_ema = loss_ema.item() * LOSS_EMA_GAMMA + loss.item() * (1.0 - LOSS_EMA_GAMMA)
 
         loss_vals.append(loss.detach())
 
         if cfg.wandb.enabled:
             wandb.log({
                 'dp-loss': loss.item(),
-                'dp-loss-ema': loss_ema.item(),
+                'dp-loss-ema': loss_ema,
                 'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
