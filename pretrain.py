@@ -745,7 +745,7 @@ def main_training_process(cfg, setup):
                     'dp-loss-pile': pile_loss.item(),
                 })
 
-        if cfg.up.early_stop > 0.0 and loss.ema < cfg.up.early_stop:
+        if cfg.up.early_stop > 0.0 and loss_ema < cfg.up.early_stop:
             training_allowed = False
             log.info(f"Reached early stopping threshold (loss {loss}, ema {loss_ema}). Stopping training ...")
 
