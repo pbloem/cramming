@@ -721,7 +721,7 @@ def main_training_process(cfg, setup):
         if cfg.up.alpha_cooldown > 0 and endprop < cfg.up.alpha_cooldown:
             alphamult = endprop / cfg.up.alpha_cooldown
 
-        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.alpha)
+        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
