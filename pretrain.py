@@ -712,7 +712,7 @@ def main_training_process(cfg, setup):
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
 
-        prop = timeprop()
+        prop = timeprop(wallclock_timer, cfg.budget)
         alphamult = 1.0
         if cfg.up.alpha_warmup > 0 and prop < cfg.up.alpha_warmup:
             alphamult = prop / cfg.up.alpha_warmup
