@@ -60,3 +60,5 @@ aux_alpha: 1.0         # The multiplier for the auxiliary loss
 which_aux: all         # Which parts of the model to compute aux loss over (all, layers only, layers and embeddings)
 data_path: '.'         # Where to store the dataset cache
 early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of the loss gets below this value.
+alpha_warmup: -1       # If pos, how long to warm up the alpha (during DP). Between 0 and 1 (proportion of time budget).
+alpha_cooldown: -1     # If neg, how long to cool down the alpha (during DP). Between 0 and 1 (proportion of time budget).

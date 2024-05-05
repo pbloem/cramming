@@ -711,7 +711,17 @@ def main_training_process(cfg, setup):
 
         # Heavy lifting is moved to engines
         device_batch = model_engine.to_device(batch)
-        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=cfg.up.aux_alpha)
+
+        prop = timeprop()
+        alphamult = 1.0
+        if cfg.up.alpha_warmup > 0 and prop < cfg.up.alpha_warmup:
+            alphamult = prop / cfg.up.alpha_warmup
+
+        endprop = 1.0 - prop # how far we ar form the end of our budget
+        if cfg.up.alpha_cooldown > 0 and endprop < cfg.up.alpha_cooldown:
+            alphamult = endprop / cfg.up.alpha_cooldown
+
+        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.alpha)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
@@ -805,6 +815,12 @@ def check_deadline(launch_time, hour_limit):
     """These measurements are deliberately wall-clock based."""
     current_time = time.time()
     return True if (current_time - launch_time) / 3600 > hour_limit else False
+
+
+def timeprop(launch_time, hour_limit):
+    """The passed time, as a proportion of the total budget."""
+    current_time = time.time()
+    return  ((current_time - launch_time) / 3600) / hour_limit
 
 
 def check_early_termination(launch_time, loss, early_termination):
