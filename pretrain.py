@@ -747,6 +747,7 @@ def main_training_process(cfg, setup):
                 'dp-gn': gradient_norm(model),
                 'dp-lr': model_engine.optimizer.param_groups[0]['lr'],
                 'rehearsal proportion': rmix,
+                'alpha_mult': alphamult
             })
 
             if rmix > 0.0:
