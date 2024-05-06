@@ -674,7 +674,7 @@ def main_training_process(cfg, setup):
     loss_vals = []
 
     # Alpha warmup
-    if type(cfg.up.alpha_warmup) is tuple:
+    if type(cfg.up.alpha_warmup) in [tuple, list]:
         awu_from, awu_to = cfg.up.alpha_warmup
         awu = True
     elif cfg.up.alpha_warmup > 0:
@@ -684,7 +684,7 @@ def main_training_process(cfg, setup):
         awu = False
 
     # Alpha cooldown
-    if type(cfg.up.alpha_cooldown) is tuple:
+    if type(cfg.up.alpha_cooldown) in [tuple, list]:
         acd_from, acd_to = cfg.up.alpha_cooldown
         acd = True
     elif cfg.up.alpha_cooldown > 0:
