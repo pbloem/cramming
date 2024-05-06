@@ -739,12 +739,20 @@ def main_training_process(cfg, setup):
         alphamult = 1.0
 
         if awu: # alpha warmup
+            if prop <= awu_from:
+                alphamult = 0.0
             if awu_from < prop <= awu_to:
                 alphamult = (prop - awu_from) / (awu_to - awu_from)
+            if prop > awu_to:
+                alphamult = 1.0
 
         if acd: # alpha cooldown
+            if prop <= acd_from:
+                alphamult = 1.0
             if acd_from < prop <= acd_to:
                 alphamult = (acd_to - prop) / (acd_to - acd_from)
+            if prop > acd_to:
+                alphamult = 0.0
 
         loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
