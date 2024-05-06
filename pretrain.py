@@ -688,6 +688,7 @@ def main_training_process(cfg, setup):
         acd_from, acd_to = cfg.up.alpha_cooldown
         acd = True
     elif cfg.up.alpha_cooldown > 0:
+        print(type(cfg.up.alpha_cooldown))
         acd_from, acd_to = cfg.up.alpha_cooldown, 1.0
         acd = True
     else:
