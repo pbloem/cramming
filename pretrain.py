@@ -673,6 +673,26 @@ def main_training_process(cfg, setup):
     training_allowed, no_recovery_necessary = True, True
     loss_vals = []
 
+    # Alpha warmup
+    if type(cfg.up.alpha_warmup) is tuple:
+        awu_from, awu_to = cfg.up.alpha_warmup
+        awu = True
+    elif cfg.up.alpha_warmup > 0:
+        awu_from, awu_to = cfg.up.alpha_warmup, 1.0
+        awu = True
+    else:
+        awu = False
+
+    # Alpha cooldown
+    if type(cfg.up.alpha_cooldown) is tuple:
+        acd_from, acd_to = cfg.up.alpha_cooldown
+        acd = True
+    elif cfg.up.alpha_cooldown > 0:
+        acd_from, acd_to = cfg.up.alpha_cooldown, 1.0
+        acd = True
+    else:
+        acd = False
+
     # Launch training
     for step, batch in enumerate(dataloader, initial_step + 1):
 
@@ -714,12 +734,14 @@ def main_training_process(cfg, setup):
 
         prop = timeprop(wallclock_timer, cfg.budget)
         alphamult = 1.0
-        if cfg.up.alpha_warmup > 0 and prop < cfg.up.alpha_warmup:
-            alphamult = prop / cfg.up.alpha_warmup
 
-        endprop = 1.0 - prop # how far we ar form the end of our budget
-        if cfg.up.alpha_cooldown > 0 and endprop < cfg.up.alpha_cooldown:
-            alphamult = endprop / cfg.up.alpha_cooldown
+        if awu: # alpha warmup
+            if awu_from < prop <= awu_to:
+                alphamult = (prop - awu_from) / (awu_to - awu_from)
+
+        if acd: # alpha cooldown
+            if acd_from < prop <= acd_to:
+                alphamult = (acd_to - prop) / (acd_to - acd_from)
 
         loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.

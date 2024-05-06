@@ -62,3 +62,4 @@ data_path: '.'         # Where to store the dataset cache
 early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of the loss gets below this value.
 alpha_warmup: -1       # If pos, how long to warm up the alpha (during DP). Between 0 and 1 (proportion of time budget).
 alpha_cooldown: -1     # If neg, how long to cool down the alpha (during DP). Between 0 and 1 (proportion of time budget).
+                       # If a pair, we cool down from the first point to the second, and stay at 0 after that.
