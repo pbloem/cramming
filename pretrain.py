@@ -11,7 +11,9 @@ import os, re
 import time
 import datetime
 import logging
+
 from collections import defaultdict
+from collections.abc import Iterable
 
 import cramming
 
@@ -674,20 +676,20 @@ def main_training_process(cfg, setup):
     loss_vals = []
 
     # Alpha warmup
-    if type(cfg.up.alpha_warmup) in [tuple, list]:
+    if isinstance(cfg.up.alpha_warmup, Iterable): # start and end point
         awu_from, awu_to = cfg.up.alpha_warmup
         awu = True
-    elif cfg.up.alpha_warmup > 0:
-        awu_from, awu_to = cfg.up.alpha_warmup, 1.0
+    elif cfg.up.alpha_warmup > 0: # end point only
+        awu_from, awu_to = 0.0, cfg.up.alpha_warmup
         awu = True
     else:
         awu = False
 
     # Alpha cooldown
-    if type(cfg.up.alpha_cooldown) in [tuple, list]:
+    if isinstance(cfg.up.alpha_cooldown, Iterable): # start and end point
         acd_from, acd_to = cfg.up.alpha_cooldown
         acd = True
-    elif cfg.up.alpha_cooldown > 0:
+    elif cfg.up.alpha_cooldown > 0: # start point only
         print(type(cfg.up.alpha_cooldown))
         acd_from, acd_to = cfg.up.alpha_cooldown, 1.0
         acd = True
