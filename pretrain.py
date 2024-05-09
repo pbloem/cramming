@@ -756,7 +756,7 @@ def main_training_process(cfg, setup):
 
         if cfg.up.use_log_alpha:
             minexp = np.log10(cfg.up.log_alpha_min)
-            alphamult = 10.0 ** (-1 * alphamult + minexp * (1 - alphamult))
+            alphamult = 10.0 ** (0 * alphamult + minexp * (1 - alphamult))
 
         loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
