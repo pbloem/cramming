@@ -63,3 +63,5 @@ early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of 
 alpha_warmup: -1       # If pos, how long to warm up the alpha (during DP). Between 0 and 1 (proportion of time budget).
 alpha_cooldown: -1     # If neg, how long to cool down the alpha (during DP). Between 0 and 1 (proportion of time budget).
                        # If a pair, we cool down from the first point to the second, and stay at 0 after that.
+use_log_alpha: false   # Schedule the alpha log-linearly
+log_alpha_min: 1e-12   # The minimum value for the alpha

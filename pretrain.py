@@ -740,7 +740,7 @@ def main_training_process(cfg, setup):
 
         if awu: # alpha warmup
             if prop <= awu_from:
-                alphamult = 0.0
+                alphamult = cfg.log_alpha_min if cfg.use_log_alpha else 0.0
             if awu_from < prop <= awu_to:
                 alphamult = (prop - awu_from) / (awu_to - awu_from)
             if prop > awu_to:
@@ -752,7 +752,12 @@ def main_training_process(cfg, setup):
             if acd_from < prop <= acd_to:
                 alphamult = (acd_to - prop) / (acd_to - acd_from)
             if prop > acd_to:
-                alphamult = 0.0
+                alphamult = cfg.log_alpha_min if cfg.use_log_alpha else 0.0
+
+        if cfg.use_log_alpha:
+            minexp = np.log10(cfg.log_alpha_min)
+            alphamult = 10.0 ** (alphamult + minexp * (1 - alphamult))
+
 
         loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
