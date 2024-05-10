@@ -2,9 +2,10 @@
 name: the_pile
 defaults:
   - sources:
-      - the_pile_stream
+      - the_pileuc_stream
 
-#
+# We use an uncopyrighted version of the Pile, since the original is no longer available (not sure if this is big enough)
+
 # Preprocessing
 normalizer:
   force_lowercase: True
