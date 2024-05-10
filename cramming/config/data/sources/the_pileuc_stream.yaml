@@ -5,7 +5,7 @@ monology/pile-uncopyrighted:
   subsets: all
   split: train
 
-  streaming: True
+  streaming: False
 
   # source-specific cleaning rules?
   remove_columns:
