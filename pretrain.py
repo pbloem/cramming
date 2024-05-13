@@ -315,7 +315,7 @@ def pretrain(cfg, setup):
         batch = next(datagen); sampletime = toc()
 
         if cfg.up.print_every > 0 and i % cfg.up.print_every == 0:
-            for i in range(5):
+            for i in range(min(5, batch.size(0))):
                 seq = batch[i].tolist()
                 print('target', i)
 
