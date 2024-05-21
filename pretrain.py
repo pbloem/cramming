@@ -368,6 +368,8 @@ def pretrain(cfg, setup):
         mbatch_size += 1
 
         if mbatch_size > int(acc):  # perform a step
+            # -- If this looks weird, it's because we want to be able to warm up the acc gradually. Do do this, we make
+            #    it a float and only cast it to an int when we check if we're at the required macrobatch size.
 
             scaler.step(opt)
             scaler.update()
@@ -643,6 +645,15 @@ def main_training_process(cfg, setup):
             #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
             #    universal pretraining.
 
+            print('target state dict')
+            print(model_engine.optimizer.state_dict())
+            print()
+            print('target state dict')
+            print(opt_sd)
+
+            exit()
+
+
             model_engine.optimizer.load_state_dict(opt_sd)
             # -- reuse the optimizer from the UP training
 
@@ -758,7 +769,9 @@ def main_training_process(cfg, setup):
             minexp = np.log10(cfg.up.log_alpha_min)
             alphamult = 10.0 ** (0 * alphamult + minexp * (1 - alphamult))
 
-        loss = model_engine.step(device_batch, guide=upmodel if cfg.up.use_aux_loss else None, alpha=alphamult * cfg.up.aux_alpha)
+        loss = model_engine.step(device_batch,
+                                 guide=upmodel if cfg.up.use_aux_loss else None,
+                                 alpha=alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
