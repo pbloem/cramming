@@ -651,9 +651,6 @@ def main_training_process(cfg, setup):
             print('source state dict')
             print(opt_sd['param_groups'])
 
-            exit()
-
-
             model_engine.optimizer.load_state_dict(opt_sd)
             # -- reuse the optimizer from the UP training
 
