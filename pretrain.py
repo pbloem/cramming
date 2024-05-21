@@ -646,10 +646,10 @@ def main_training_process(cfg, setup):
             #    universal pretraining.
 
             print('target state dict')
-            print(model_engine.optimizer.state_dict())
+            print(model_engine.optimizer.state_dict()['param_groups'])
             print()
             print('source state dict')
-            print(opt_sd)
+            print(opt_sd['param_groups'])
 
             exit()
 
