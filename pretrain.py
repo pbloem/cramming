@@ -648,7 +648,7 @@ def main_training_process(cfg, setup):
             print('target state dict')
             print(model_engine.optimizer.state_dict())
             print()
-            print('target state dict')
+            print('source state dict')
             print(opt_sd)
 
             exit()
