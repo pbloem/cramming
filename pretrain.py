@@ -773,7 +773,7 @@ def main_training_process(cfg, setup):
 
         loss = model_engine.step(device_batch,
                                  guide=upmodel if cfg.up.use_aux_loss else None,
-                                 alpha=0.0 if cfg.up.use_aux_loss else alphamult * cfg.up.aux_alpha)
+                                 alpha=0.0 if not cfg.up.use_aux_loss else alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
