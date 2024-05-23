@@ -275,6 +275,7 @@ def pretrain(cfg, setup):
         print(opt)
     else:
         opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
+        # TODO: Remove this and always use cramming opt
 
     if cfg.up.warmup > 0:
         lr = 0.0
@@ -645,14 +646,18 @@ def main_training_process(cfg, setup):
             #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
             #    universal pretraining.
 
+            print(len(cfg.train.limited_decay_keys))
             print('target state dict')
             print(model_engine.optimizer.state_dict()['param_groups'])
             print()
             print('source state dict')
             print(opt_sd['param_groups'])
 
+            # Reuse the optimizer from the UP training
             model_engine.optimizer.load_state_dict(opt_sd)
-            # -- reuse the optimizer from the UP training
+            # -- If this fails, it may be due to the weight decay being set to 0.0 for this run but not for the
+            #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
+
 
     # Reset betas to the value given in the CL params
     if cfg.up.reset_betas:
@@ -768,7 +773,7 @@ def main_training_process(cfg, setup):
 
         loss = model_engine.step(device_batch,
                                  guide=upmodel if cfg.up.use_aux_loss else None,
-                                 alpha=alphamult * cfg.up.aux_alpha)
+                                 alpha=0.0 if cfg.up.use_aux_loss else alphamult * cfg.up.aux_alpha)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
