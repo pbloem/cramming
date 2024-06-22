@@ -148,6 +148,8 @@ class TorchEngineMinimal(torch.nn.Module):
                 print(output.size())
                 print(b, l, e)
                 print(b * 0.2 * l, e)
+                exit()
+
                 out = output.reshape(b, l, e)
                 xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2))
 
