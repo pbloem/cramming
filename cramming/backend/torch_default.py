@@ -144,11 +144,11 @@ class TorchEngineMinimal(torch.nn.Module):
 
                 b, l, e = guide.size()
 
+                output = self.model.decoder(self.model.prediction_head(output))
+                # -- The model doesn't run the decoder by default, because of sparse loss calculation
 
                 print(output.size())
                 print(b, l, e)
-                print(b * 0.25 * l, e)
-                print(type(self.model))
                 exit()
 
                 out = output.reshape(b, l, e)
