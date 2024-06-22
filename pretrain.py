@@ -606,6 +606,8 @@ def main_training_process(cfg, setup):
 
         elif cfg.up.mode == 'distill':
             print('Using distillation mode.')
+
+            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
             use_alpha = True
 
         else:
