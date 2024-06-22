@@ -93,7 +93,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
         from ..utils import flatten
 
-        print('Compiling model.')
+        print(f'Compiling model: {cfg_impl.compile_torch}')
         model = torch.compile(
             model,
             mode=self.cfg_impl.mode,
