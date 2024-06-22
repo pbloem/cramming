@@ -147,10 +147,6 @@ class TorchEngineMinimal(torch.nn.Module):
                 output = self.model.decoder(self.model.prediction_head(output))
                 # -- The model doesn't run the decoder by default, because of sparse loss calculation
 
-                print(output.size())
-                print(b, l, e)
-                exit()
-
                 out = output.reshape(b, l, e)
                 xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2))
 
