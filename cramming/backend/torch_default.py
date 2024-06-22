@@ -143,6 +143,11 @@ class TorchEngineMinimal(torch.nn.Module):
                 assert  1.0 >= guide.min() >= 0.0
 
                 b, l, e = guide.size()
+
+
+                print(output.size())
+                print(b, l, e)
+                print(b * 0.2 * l, e)
                 out = output.reshape(b, l, e)
                 xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2))
 

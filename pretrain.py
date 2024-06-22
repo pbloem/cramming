@@ -790,6 +790,8 @@ def main_training_process(cfg, setup):
             guide = upmodel
         elif cfg.up.mode == 'distill':
             with torch.no_grad():
+
+
                 output = upmodel(batch['input_ids'])['outputs']
                 output = output.reshape(b, l, -1) # Hope this is right ...
 
