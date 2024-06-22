@@ -613,7 +613,6 @@ def main_training_process(cfg, setup):
         else:
             raise ValueError(f'Transfer mode {cfg.up.mode} not recognized.')
 
-
     else:
         model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
