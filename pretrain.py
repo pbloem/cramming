@@ -792,10 +792,9 @@ def main_training_process(cfg, setup):
             with torch.no_grad():
                 print(batch['input_ids'].size())
                 output = upmodel(batch['input_ids'])['outputs']
+                output = output.reshape(b, l, -1) # Hope this is right ...
 
-                print(output.size())
-                print(output.reshape(b, l, -1).size())
-                exit()
+                print('min max', output.min(), output.max())
 
                 guide = output.softmax(dim=-1)
         else:
