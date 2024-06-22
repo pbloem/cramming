@@ -192,6 +192,8 @@ class ScriptableLMForPreTraining(PreTrainedModel):
     def forward(self, input_ids, attention_mask: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, **kwargs):
 
         outputs = self.encoder(input_ids, attention_mask)
+        print('!', outputs.size())
+
         outputs = outputs.view(-1, outputs.shape[-1])
 
         if self.sparse_prediction and labels is not None:
