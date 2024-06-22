@@ -148,6 +148,7 @@ class TorchEngineMinimal(torch.nn.Module):
                 print(output.size())
                 print(b, l, e)
                 print(b * 0.25 * l, e)
+                print(type(self.model))
                 exit()
 
                 out = output.reshape(b, l, e)
