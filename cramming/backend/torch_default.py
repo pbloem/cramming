@@ -29,6 +29,8 @@ from .utils import group_parameters, prepare_pretraining_dataloader, update_ema,
 from .optimizers.schedulers import get_schedule_fn
 from .optimizers import Adahessian, AdamWScale, Shampoo, LARS, SAM, ProgressiveBatching, AGD, Sophia
 
+import troch.nn.functional as F
+
 log = logging.getLogger(__name__)
 _default_setup = dict(device=torch.device("cpu"), dtype=torch.float)
 
@@ -138,12 +140,15 @@ class TorchEngineMinimal(torch.nn.Module):
                 self.wandb.log({'aux-loss' : aux.item()})
 
             if mode == 'distill':
+                assert  1.0 >= guide.min() >= 0.0
 
-                print('output', output.size())
-                print('guide', guide.size())
-                assert batch.size() == guide.size()
+                b, l, e = guide.size()
+                out = output.reshape(b, l, e)
+                xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2))
 
-                exit()
+                loss += alpha * xent
+
+                self.wandb.log({'distll-loss' : xent.item()})
 
             self.backward(loss.mean())
             self.optimizer_step()
