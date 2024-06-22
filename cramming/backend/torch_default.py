@@ -128,7 +128,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
         with context():
             res = self.forward(**batch)
-            loss, output = res['loss'], res['output']
+            loss, output = res['loss'], res['outputs']
 
             if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
