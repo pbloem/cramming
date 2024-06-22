@@ -608,6 +608,7 @@ def main_training_process(cfg, setup):
             print('Using distillation mode.')
 
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            upmodel.to(d())
             use_alpha = True
 
         else:
@@ -790,12 +791,8 @@ def main_training_process(cfg, setup):
             guide = upmodel
         elif cfg.up.mode == 'distill':
             with torch.no_grad():
-
-
-                output = upmodel(batch['input_ids'])['outputs']
+                output = upmodel(batch['input_ids'].to(d()))['outputs']
                 output = output.reshape(b, l, -1) # Hope this is right ...
-
-                print('min max', output.min(), output.max())
 
                 guide = output.softmax(dim=-1)
         else:
