@@ -29,7 +29,7 @@ from .utils import group_parameters, prepare_pretraining_dataloader, update_ema,
 from .optimizers.schedulers import get_schedule_fn
 from .optimizers import Adahessian, AdamWScale, Shampoo, LARS, SAM, ProgressiveBatching, AGD, Sophia
 
-import troch.nn.functional as F
+import torch.nn.functional as F
 
 log = logging.getLogger(__name__)
 _default_setup = dict(device=torch.device("cpu"), dtype=torch.float)
