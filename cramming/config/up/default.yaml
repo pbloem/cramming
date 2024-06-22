@@ -40,7 +40,7 @@ transfer: discrete     # How information is transferred from the source to the m
                        # the source. 'distill' uses distillation on the logits produced by the model. 'continuous' (TODO)
                        # uses continuous input/output vectors to train the core of the model without the token embeddings
                        # and language head.
-loss_mask_scale: 0.0   # In distill mode, how much to scale down the non-manipulated elements. In plain MLM training,
+loss_mask_scale: 0.0   # In (UP) distill mode, how much to scale down the non-manipulated elements. In plain MLM training,
                        # these are masked out, because they're easy to predict. However, in distill mode, we _sample_ the
                        # input from the logit, so recovering the logit is actually a challenging task, so including them
                        # in the loss, potentially with a scaling factor, creates a richer signal to learn from.
@@ -55,9 +55,11 @@ nrehearsal: 10_000     # Number of UP batches to generate for the rehearsal phas
 reset_betas: false     # Reset the betas after UP, to the value of `betas`
 reset_wd: false        # Reset the weight decay parameter of the optimizer to the Cramming value
 manual: false          # Do the DP training manually, bypassing the cramming engine.
-use_aux_loss: false    # Don't initialize from the pretrained weights, but use them as an auxiliary loss.
-aux_alpha: 1.0         # The multiplier for the auxiliary loss
-which_aux: all         # Which parts of the model to compute aux loss over (all, layers only, layers and embeddings)
+mode: 'init'           # Model transfer mode: init (initialize weights from the DP model), norm (add an aux loss term
+                       # for the distance between the model weight and the dp model weights), distill (distillation on
+                       # the output probabilities).
+aux_alpha: 1.0         # The multiplier for the auxiliary loss (both distill and norm)
+which_aux: all         # Which parts of the model to compute the norm aux loss over (all, layers only, layers and embeddings)
 data_path: '.'         # Where to store the dataset cache
 early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of the loss gets below this value.
 alpha_warmup: -1       # If pos, how long to warm up the alpha (during DP). Between 0 and 1 (proportion of time budget).

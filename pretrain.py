@@ -590,7 +590,7 @@ def main_training_process(cfg, setup):
             #         loss /= REPS
             #         print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
 
-        if cfg.up.use_aux_loss:
+        if cfg.up.mode == 'norm':
 
             # Freeze the UP model
             for parm in upmodel.parameters():
@@ -598,8 +598,20 @@ def main_training_process(cfg, setup):
             upmodel.to(d())
 
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-        else:
+            use_alpha = True
+
+        elif cfg.up.mode == 'init':
             model = upmodel
+            use_alpha = False
+
+        elif cfg.up.mode == 'distill':
+            print('Using distillation mode.')
+            use_alpha = True
+
+        else:
+            raise ValueError(f'Transfer mode {cfg.up.mode} not recognized.')
+
+
     else:
         model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
@@ -771,9 +783,21 @@ def main_training_process(cfg, setup):
             minexp = np.log10(cfg.up.log_alpha_min)
             alphamult = 10.0 ** (0 * alphamult + minexp * (1 - alphamult))
 
+        if cfg.up.mode == 'init':
+            guide = None
+        elif cfg.up.mode == 'norm':
+            guide = upmodel
+        elif cfg.up.mode == 'distill':
+            with torch.no_grad():
+                output = upmodel(batch)
+                guide = output.softmax(dim=-1)
+        else:
+            raise
+
         loss = model_engine.step(device_batch,
-                                 guide=upmodel if cfg.up.use_aux_loss else None,
-                                 alpha=0.0 if not cfg.up.use_aux_loss else alphamult * cfg.up.aux_alpha)
+                                 guide=guide,
+                                 alpha=0.0 if not use_alpha else alphamult * cfg.up.aux_alpha,
+                                 mode=cfg.up.mode)
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.

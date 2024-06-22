@@ -121,20 +121,29 @@ class TorchEngineMinimal(torch.nn.Module):
         self.initial_time = time.time() - already_elapsed_time
         self.optimizer, self.scheduler = _load_optimizer(model, cfg_train, cfg_impl, self.initial_time)
 
-    def step(self, batch: dict[str, torch.Tensor], guide=None, alpha=0.0):
+    def step(self, batch: dict[str, torch.Tensor], guide=None, alpha=0.0, mode='init'):
 
         self.accumulated_samples += self.effective_mbs
         context = self.model.no_sync if self.accumulated_samples < self.current_batch_size else nullcontext
 
         with context():
-            loss = self.forward(**batch)["loss"]
+            res = self.forward(**batch)
+            loss, output = res['loss'], res['output']
 
-            if guide is not None:
+            if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
                 aux = aux_loss(self.model, guide, which=self.which_aux) # L2 norm
                 loss += alpha * aux
 
                 self.wandb.log({'aux-loss' : aux.item()})
+
+            if mode == 'distill':
+
+                print('output', output.size())
+                print('guide', guide.size())
+                assert batch.size() == guide.size()
+
+                exit()
 
             self.backward(loss.mean())
             self.optimizer_step()
