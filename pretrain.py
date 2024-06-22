@@ -790,9 +790,11 @@ def main_training_process(cfg, setup):
             guide = upmodel
         elif cfg.up.mode == 'distill':
             with torch.no_grad():
+                print(batch['input_ids'].size())
                 output = upmodel(batch['input_ids'])['outputs']
 
                 print(output.size())
+                print(output.reshape(b, l, -1).size())
                 exit()
 
                 guide = output.softmax(dim=-1)
