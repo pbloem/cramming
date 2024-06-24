@@ -131,6 +131,7 @@ class TorchEngineMinimal(torch.nn.Module):
         with context():
             res = self.forward(**batch)
             loss, output = res['loss'], res['outputs']
+            loss = loss.mean()
 
             if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
@@ -148,13 +149,13 @@ class TorchEngineMinimal(torch.nn.Module):
                 # -- The model doesn't run the decoder by default, because of sparse loss calculation
 
                 out = output.reshape(b, l, e)
-                xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2))
+                xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2), reduction='mean')
 
                 loss += alpha * xent
 
                 self.wandb.log({'distll-loss' : xent.item()})
 
-            self.backward(loss.mean())
+            self.backward(loss)
             self.optimizer_step()
 
         return loss.detach()
