@@ -131,18 +131,17 @@ class TorchEngineMinimal(torch.nn.Module):
         with (context()):
             res = self.forward(**batch)
             loss = res['loss']
-            loss = loss.mean()
 
             output = res['outputs'] if 'output' in res else None
 
             if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
                 aux = aux_loss(self.model, guide, which=self.which_aux) # L2 norm
-                loss += alpha * aux
+                lossbw = loss.mean() +  alpha * aux
 
                 self.wandb.log({'aux-loss' : aux.item()})
 
-            if mode == 'distill' and output is not None:
+            elif mode == 'distill' and output is not None:
                 assert  1.0 >= guide.min() >= 0.0
 
                 b, l, e = guide.size()
@@ -153,11 +152,14 @@ class TorchEngineMinimal(torch.nn.Module):
                 out = output.reshape(b, l, e)
                 xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2), reduction='mean')
 
-                loss += alpha * xent
+                lossbw = loss.mean() + alpha * xent
 
                 self.wandb.log({'distll-loss' : xent.item()})
 
-            self.backward(loss)
+            else:
+                lossbw = loss.mean()
+
+            self.backward(lossbw)
             self.optimizer_step()
 
         return loss.detach()
