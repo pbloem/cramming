@@ -128,10 +128,12 @@ class TorchEngineMinimal(torch.nn.Module):
         self.accumulated_samples += self.effective_mbs
         context = self.model.no_sync if self.accumulated_samples < self.current_batch_size else nullcontext
 
-        with context():
+        with (context()):
             res = self.forward(**batch)
-            loss, output = res['loss'], res['outputs']
+            loss = res['loss']
             loss = loss.mean()
+
+            output = res['outputs'] if 'output' in res esle None
 
             if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
@@ -140,7 +142,7 @@ class TorchEngineMinimal(torch.nn.Module):
 
                 self.wandb.log({'aux-loss' : aux.item()})
 
-            if mode == 'distill':
+            if mode == 'distill' and output is not None:
                 assert  1.0 >= guide.min() >= 0.0
 
                 b, l, e = guide.size()
