@@ -133,7 +133,7 @@ class TorchEngineMinimal(torch.nn.Module):
             loss = res['loss']
             loss = loss.mean()
 
-            output = res['outputs'] if 'output' in res esle None
+            output = res['outputs'] if 'output' in res else None
 
             if mode == 'norm':
                 # Auxiliary loss: how close the model parameters are to a guide model (the UP pretrained one)
