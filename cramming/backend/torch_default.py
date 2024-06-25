@@ -142,19 +142,19 @@ class TorchEngineMinimal(torch.nn.Module):
                 self.wandb.log({'aux-loss' : aux.item()})
 
             elif mode == 'distill' and output is not None:
-                assert  1.0 >= guide.min() >= 0.0
+                assert  1.0 >= guide.max() >= guide.min() >= 0.0
 
                 b, l, e = guide.size()
 
                 output = self.model.decoder(self.model.prediction_head(output))
-                # -- The model doesn't run the decoder by default, because of sparse loss calculation
+                # -- The model doesn't run the decoder (the LM head) by default, because of sparse loss calculation
 
                 out = output.reshape(b, l, e)
                 xent = F.cross_entropy(out.transpose(1, 2), guide.transpose(1, 2), reduction='mean')
 
                 lossbw = loss.mean() + alpha * xent
 
-                self.wandb.log({'distll-loss' : xent.item()})
+                self.wandb.log({'distill-loss' : xent.item()})
 
             else:
                 lossbw = loss.mean()

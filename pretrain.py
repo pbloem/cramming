@@ -787,16 +787,18 @@ def main_training_process(cfg, setup):
 
         if cfg.up.mode == 'init':
             guide = None
-        elif cfg.up.mode == 'norm':
-            guide = upmodel
-        elif cfg.up.mode == 'distill':
-            with torch.no_grad():
-                output = upmodel(batch['input_ids'].to(d()))['outputs']
-                output = output.reshape(b, l, -1) # Hope this is right ...
 
-                guide = output.softmax(dim=-1)
-        else:
-            raise
+        if cfg.up.enabled:
+            if cfg.up.mode == 'norm':
+                guide = upmodel
+            elif cfg.up.mode == 'distill':
+                with torch.no_grad():
+                    output = upmodel(batch['input_ids'].to(d()))['outputs']
+                    output = output.reshape(b, l, -1) # Hope this is right ...
+
+                    guide = output.softmax(dim=-1)
+            else:
+                raise
 
         loss = model_engine.step(device_batch,
                                  guide=guide,
