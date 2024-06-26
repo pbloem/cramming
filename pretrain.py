@@ -534,6 +534,7 @@ def main_training_process(cfg, setup):
 
     opt_sd = None
     rmix = -1.0
+    use_alpha = False
     if cfg.up.enabled:
         if cfg.up.snapshot is None:
             print(f'Pretraining UP model')
