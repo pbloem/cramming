@@ -785,8 +785,7 @@ def main_training_process(cfg, setup):
             minexp = np.log10(cfg.up.log_alpha_min)
             alphamult = 10.0 ** (0 * alphamult + minexp * (1 - alphamult))
 
-        if cfg.up.mode == 'init':
-            guide = None
+        guide = None
 
         if cfg.up.enabled:
             if cfg.up.mode == 'norm':
