@@ -611,7 +611,7 @@ def main_training_process(cfg, setup):
             model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
             upmodel.to(d())
 
-            if cfg.up.compile:
+            if cfg.impl.compile_torch:
                 upmodel = torch.compile(upmodel)
 
             use_alpha = True
