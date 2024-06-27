@@ -141,7 +141,8 @@ class TorchEngineMinimal(torch.nn.Module):
 
                 self.wandb.log({'aux-loss' : aux.item()})
 
-            elif mode == 'distill' and output is not None:
+            elif mode == 'distill':
+                assert output is not None
                 assert  1.0 >= guide.max() >= guide.min() >= 0.0
 
                 b, l, e = guide.size()
