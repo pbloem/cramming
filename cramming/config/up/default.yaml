@@ -57,7 +57,7 @@ reset_wd: false        # Reset the weight decay parameter of the optimizer to th
 manual: false          # Do the DP training manually, bypassing the cramming engine.
 mode: 'init'           # Model transfer mode: init (initialize weights from the DP model), norm (add an aux loss term
                        # for the distance between the model weight and the dp model weights), distill (distillation on
-                       # the output probabilities).
+                       # the output probabilities), none (no transfer, for debugging).
 aux_alpha: 1.0         # The multiplier for the auxiliary loss (both distill and norm)
 which_aux: all         # Which parts of the model to compute the norm aux loss over (all, layers only, layers and embeddings)
 data_path: '.'         # Where to store the dataset cache

@@ -591,7 +591,14 @@ def main_training_process(cfg, setup):
             #         loss /= REPS
             #         print(f'Estimated model loss on rehearsal buffer: {loss:.4} nats/token.')
 
-        if cfg.up.mode == 'norm':
+        if cfg.up.mode == 'none':
+            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            del upmodel
+
+            use_alpha = False
+
+
+        elif cfg.up.mode == 'norm':
 
             # Freeze the UP model
             for parm in upmodel.parameters():
@@ -801,13 +808,12 @@ def main_training_process(cfg, setup):
                     output = output.reshape(b, l, -1) # Hope this is right ...
 
                     guide = output.softmax(dim=-1)
-            else:
-                raise
 
         loss = model_engine.step(device_batch,
                                  guide=guide,
                                  alpha=0.0 if not use_alpha else alphamult * cfg.up.aux_alpha,
                                  mode=cfg.up.mode)
+
         # -- Includes both the forward and the backward.
         # -- Note the above relies on the fact that exactly 25% of tokens are masked. The loss is then computed sparsely
         #    over just these tokens to speed up processing.
