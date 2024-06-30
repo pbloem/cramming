@@ -609,7 +609,17 @@ def main_training_process(cfg, setup):
             use_alpha = True
 
         elif cfg.up.mode == 'init':
-            model = upmodel
+
+            if cfg.up.aux_alpha <= 0.0:
+                model = upmodel
+            else:
+                model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
+                # Pick a halfway point between the raw initialized model and the pretrained one
+                a = cfg.up.aux_alpha
+                for mparm, uparm in zip(model.parameters(), upmodel.parameters()):
+                    mparm.data = mparm.data * (1 - a) + uparm.data * a
+
             use_alpha = False
 
         elif cfg.up.mode == 'distill':
@@ -683,7 +693,6 @@ def main_training_process(cfg, setup):
             model_engine.optimizer.load_state_dict(opt_sd)
             # -- If this fails, it may be due to the weight decay being set to 0.0 for this run but not for the
             #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
-
 
     # Reset betas to the value given in the CL params
     if cfg.up.reset_betas:
