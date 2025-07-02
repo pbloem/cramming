@@ -70,8 +70,8 @@ use_log_alpha: false   # Schedule the alpha log-linearly
 log_alpha_min: 1e-12   # The minimum value for the alpha
 lstmemb: 64            # Embedding for the LSTM source
 lstmlayers: 1          # Number of layers in the LSTM source
-lstmreset: 20,20       # Number of instances to reset (constant and random)
-lstmmult: 0,1.1        # Range from which to sample the LSTM multiplier
+lstmreset: [20,20]     # Number of instances to reset (constant and random)
+lstmmult: [0,1.1]      # Range from which to sample the LSTM multiplier
 lstmseed: 8            # Seed size for the LSTM source
 lstmtemp: 1e-4         # Sampling temperature for the LSTM source
 
