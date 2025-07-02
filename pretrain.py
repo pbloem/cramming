@@ -419,7 +419,7 @@ def pretrain(cfg, setup):
 
             if cfg.up.transfer == 'discrete':
 
-                rloss = F.cross_entropy(output.transpose(2, 1), targets, reduction=sum)
+                rloss = F.cross_entropy(output.transpose(2, 1), targets, reduction='sum')
                 # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
                 #    -100 in 'targets', so that they get masked out.
 
