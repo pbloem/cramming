@@ -111,7 +111,7 @@ def lstm_scale(lstm : nn.LSTM, weight_mult=1.0, bias_mult=1.0):
         for b in getattr(lstm, 'bias_ih_l'+ str(k)), getattr(lstm, 'bias_hh_l'+ str(k)):
             b.data *= bias_mult
 
-def rand_batch(length, con, ran):
+def rand_batch(length, con, ran, num_tokens):
     """
     Generate a batch of constant and random instances.
 
@@ -120,9 +120,9 @@ def rand_batch(length, con, ran):
     :param length: Length of the instances
     :return:
     """
-    crows = torch.randint(low=0, high=NUM_TOKENS, size=(con, 1))
+    crows = torch.randint(low=0, high=num_tokens, size=(con, 1))
     crows = crows.tile((1, length))
-    rrows = torch.randint(low=0, high=NUM_TOKENS, size=(ran, length))
+    rrows = torch.randint(low=0, high=num_tokens, size=(ran, length))
 
     rows = torch.cat((crows, rrows), dim=0)
 
@@ -195,7 +195,7 @@ def data_generator(num_tokens, cfg):
                 # replace some random rows in the buffer with constant and random sequences
                 con, ran = cfg.up.lstmreset
 
-                rows = rand_batch(context, con, ran)
+                rows = rand_batch(context, con, ran, num_tokens)
 
                 idx = random.sample(range(cfg.up.buffer_size), rows.size(0))
                 buffer[idx] = rows
