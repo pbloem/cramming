@@ -69,6 +69,7 @@ alpha_cooldown: -1     # If neg, how long to cool down the alpha (during DP). Be
                        # If a pair, we cool down from the first point to the second, and stay at 0 after that.
 use_log_alpha: false   # Schedule the alpha log-linearly
 log_alpha_min: 1e-12   # The minimum value for the alpha
+up_only: false         # If true, kills the run after the UP phase (used for HP tuning)
 lstmemb: 64            # Embedding for the LSTM source
 lstmlayers: 1          # Number of layers in the LSTM source
 lstmreset: [20,20]     # Number of instances to reset (constant and random)

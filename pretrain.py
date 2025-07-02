@@ -558,6 +558,11 @@ def pretrain(cfg, setup):
             'opt': opt.state_dict()
         }, cfg.up.snapshot_file)
 
+    if cfg.up.up_only:
+        print('Stopping process after UP phase.')
+        exit()
+        # -- not pretty, but whatever.
+
     return model, opt
 
 def estimate_compression(model, data, nsamples, context, batch_size, verbose=False, model_produces_logits=True, mask_token=4):
