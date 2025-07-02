@@ -355,24 +355,31 @@ def pretrain(cfg, setup):
         opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
         # TODO: Remove this and always use cramming opt
 
+
     if cfg.up.warmup > 0:
         lr = 0.0
         set_lr(lr, opt)
         lr_delta = cfg.up.lr / cfg.up.warmup # -- By how much to increase the lr per instance
 
-    if cfg.up.cooldown > 0:
-        cd_delta = cfg.up.lr / cfg.up.cooldown
-        # -- By how much to cool down the lr (per instance) after the peak is reached
-        cd_start = (cfg.up.num_batches * cfg.up.batch_size) - cfg.up.cooldown
+    if cfg.up.cooldown > -1:
 
+        cooldown_rate = 0.5 ** (1 / cfg.up.cooldown)
+        last_cooldown = cfg.up.warmup
+
+        # cd_delta = cfg.up.lr / cfg.up.cooldown
+        # # -- By how much to cool down the lr (per instance) after the peak is reached
+        # cd_start = (cfg.up.num_batches * cfg.up.batch_size) - cfg.up.cooldown
+
+    accumulated = 0 # nr of instances accumulated currently
+    # cfg.up.accumulate = macrobatch_size
     if cfg.up.acc_warmup > 0:
-        acc = 1.0 # the macrobatch size
-        acc_delta = (cfg.up.accumulate - 1) / cfg.up.acc_warmup
+        mbraw =  cfg.up.batch_size # the macrobatch size
+        mbdelta = (cfg.up.accumulate - cfg.up.batch_size) / cfg.up.acc_warmup
         # -- By how much to increase the warmup per instance
     else:
-        acc = cfg.up.accumulate
+        acc = cfg.up.accumulate # macrobatch size
 
-    mbatch_size = 0 # size of the current macrobatch
+    accumulated = 0 # nr of instances accumulated currently
 
     context = cfg.arch.embedding.max_seq_length
 
@@ -382,8 +389,6 @@ def pretrain(cfg, setup):
     if cfg.up.dp:
         model = torch.nn.DataParallel(model)
 
-    # mean and variance of the gradient norm
-    gnm, gnv = 0, 0
     seen = 0
     batch = None
 
@@ -413,9 +418,13 @@ def pretrain(cfg, setup):
             output = model(inputs)['outputs'].view(cfg.up.batch_size, context, -1)
 
             if cfg.up.transfer == 'discrete':
-                loss = F.cross_entropy(output.transpose(2, 1), targets)
+
+                rloss = F.cross_entropy(output.transpose(2, 1), targets, reduction=sum)
                 # -- This looks like the loss is computed for all tokens, but the non-manipulated ones are set to
                 #    -100 in 'targets', so that they get masked out.
+
+                loss = (rloss / inputs.size(1))
+                # -- We divide out the time, but sum over the instances
 
             elif cfg.up.transfer == 'distill':
                 assert cfg.up.source_mode == 'nnsimple' or cfg.up.source_mode == 'nn'
@@ -435,43 +444,79 @@ def pretrain(cfg, setup):
                 raise
 
         scaler.scale(loss).backward()
+        accumulated += inputs.size(0)
 
-        # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-        # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
-        # that value.
-        gn = gradient_norm(model)
-        lim = gnm + math.sqrt(gnv) * cfg.up.gc
-        if i > 10 and gn > lim:
-            nn.utils.clip_grad_norm_(model.parameters(), lim)
+        # # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
+        # # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
+        # # that value.
+        # gn = gradient_norm(model)
+        # lim = gnm + math.sqrt(gnv) * cfg.up.gc
+        # if i > 10 and gn > lim:
+        #     nn.utils.clip_grad_norm_(model.parameters(), lim)
 
-        gnm, gnv = em_meanvar(gn, gnm, gnv)
+        # gnm, gnv = em_meanvar(gn, gnm, gnv)
 
         # TODO: This is unnecessary. Copy from regular, fix the gradient accumulation.
 
-        mbatch_size += 1
+        if accumulated >= mbraw: # perform a step
 
-        if mbatch_size > int(acc):  # perform a step
-            # -- If this looks weird, it's because we want to be able to warm up the acc gradually. To do this, we make
-            #    it a float and only cast it to an int when we check if we're at the required macrobatch size.
+            scaler.unscale_(opt)
+
+            # scale the gradients to average over the macrobatch
+            # -- here we divide out the instances
+            for parm in model.parameters():
+                if parm.grad is not None:
+                    parm.grad /= accumulated
+
+            gn = gradient_norm(model)
+            if gc > 0.0:
+                nn.utils.clip_grad_norm_(model.parameters(), gc)
+
+            if cfg.wandb.enabled:
+                wandb.log({
+                    'gradient_norm': gn,
+                    'accumulated': accumulated # Sanity check.
+                }, step=seen)
 
             scaler.step(opt)
             scaler.update()
 
             opt.zero_grad()
-            set_lr(lr=min(lr, cfg.up.lr), opt=opt)
 
-            mbatch_size = 0
-
-        if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
-            acc += acc_delta * batch.size(0)
-        if seen <= cfg.up.warmup: # warm up the learning rate
-            lr  += lr_delta * batch.size(0)
-        if cfg.up.cooldown > 0 and seen > cd_start: # cool down the learning rate
-            lr  -= cd_delta * batch.size(0)
+            accumulated = 0
 
         seen += batch.size(0)
         traintime = toc()
 
+        # Admin
+
+        # Set accumulation target
+        if seen <= cfg.up.acc_start:
+            mbraw = cfg.up.batch_size
+        elif cfg.up.acc_start <= seen < cfg.up.acc_warmup + cfg.up.acc_start:
+            prop = (seen - cfg.up.acc_start) / cfg.up.acc_warmup
+            mbraw = cfg.up.batch_size + (cfg.up.accumulate - cfg.up.batch_size) * prop
+        else:
+            assert seen >= cfg.up.acc_warmup + cfg.up.acc_start
+            mbraw = cfg.up.accumulate
+
+        # Set LR
+        if cfg.up.warmup > 0 and seen <= cfg.up.warmup:
+            set_lr(lr=lr_delta * seen, opt=opt)
+
+        else:
+            if cfg.up.cooldown > 0:
+                since_wu = seen - cfg.up.warmup
+                set_lr(lr=cfg.up.lr * cooldown_rate ** since_wu, opt=opt)
+
+        # if cfg.up.acc_warmup and int(acc) < cfg.up.accumulate:
+        #     acc += acc_delta * batch.size(0)
+        # if seen <= cfg.up.warmup: # warm up the learning rate
+        #     lr  += lr_delta * batch.size(0)
+        # if cfg.up.cooldown > 0 and seen > cd_start: # cool down the learning rate
+        #     lr  -= cd_delta * batch.size(0)
+
+        # Logging
         if cfg.wandb.enabled:
             wandb.log({
                 'loss': loss,
@@ -480,13 +525,12 @@ def pretrain(cfg, setup):
                 'sample_time': sampletime,
                 'train_time': traintime,
                 'pre-training': 1.0,
-                'ema_gn': gnm,
-                'em_std_gn': math.sqrt(gnv),
-                'clip': 1.0 if gn > lim else 0.0,
                 'acc': acc
-            })
+            }, step=seen)
+
         bar.set_postfix({'loss': f'{loss:.02}'})
 
+        # Eval
         if cfg.up.eval_ood_every > 0 and (i - cfg.up.spinup) % cfg.up.eval_ood_every == 0:
 
             for name, data in datasets.items():
@@ -516,7 +560,6 @@ def pretrain(cfg, setup):
         }, cfg.up.snapshot_file)
 
     return model, opt
-
 
 def estimate_compression(model, data, nsamples, context, batch_size, verbose=False, model_produces_logits=True, mask_token=4):
     """
