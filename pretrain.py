@@ -195,7 +195,7 @@ def data_generator(num_tokens, cfg):
                 # replace some random rows in the buffer with constant and random sequences
                 con, ran = cfg.up.lstmreset
 
-                rows = rand_batch(context, con, ran, num_tokens)
+                rows = rand_batch(context, con, ran, num_tokens).to('cuda')
 
                 idx = random.sample(range(cfg.up.buffer_size), rows.size(0))
                 buffer[idx] = rows
