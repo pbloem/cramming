@@ -469,8 +469,8 @@ def pretrain(cfg, setup):
                     parm.grad /= accumulated
 
             gn = gradient_norm(model)
-            if gc > 0.0:
-                nn.utils.clip_grad_norm_(model.parameters(), gc)
+            if cfg.up.gc > 0.0:
+                nn.utils.clip_grad_norm_(model.parameters(), cfg.up.gc)
 
             if cfg.wandb.enabled:
                 wandb.log({

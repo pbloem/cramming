@@ -18,7 +18,7 @@ source_layers: 8       # How many trf layers to use in the source model (this is
 bid_source: False      # Whether the source is causal (False) or bidirectional (True)
 sample_batch_size: 100 # Number of instances in the buffer to pass
                        # through the model each iteration
-gc: 2.0                # Gradient clipping threshold. We use _adaptive gradient clipping_. That is, we take a running
+gc: 1.0                # Gradient clipping threshold. We use _adaptive gradient clipping_. That is, we take a running
                        # mean and running standard deviation of the gradient norm, and if the current gradient norm is
                        # higher than the mean plus `gc` times the standard deviation, we clip to that value.
 mask_token: 4          # Which masking token to use (4 in the default tokenizer). We hard-code this because the
