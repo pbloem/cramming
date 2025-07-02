@@ -99,14 +99,56 @@ def set_lr(lr, opt):
         g['lr'] = lr
         g['initial_lr'] = lr
 
+def lstm_scale(lstm : nn.LSTM, weight_mult=1.0, bias_mult=1.0):
+
+    l = lstm.num_layers
+
+    for k in range(l):
+        for wlist in lstm.all_weights:
+            for w in wlist:
+                w.data *= weight_mult
+
+        for b in getattr(lstm, 'bias_ih_l'+ str(k)), getattr(lstm, 'bias_hh_l'+ str(k)):
+            b.data *= bias_mult
+
+def rand_batch(length, con, ran):
+    """
+    Generate a batch of constant and random instances.
+
+    :param const: # of constant instances
+    :param rand: # of random instances
+    :param length: Length of the instances
+    :return:
+    """
+    crows = torch.randint(low=0, high=NUM_TOKENS, size=(con, 1))
+    crows = crows.tile((1, length))
+    rrows = torch.randint(low=0, high=NUM_TOKENS, size=(ran, length))
+
+    rows = torch.cat((crows, rrows), dim=0)
+
+    return rows
+
 def data_generator(num_tokens, cfg):
     """
     A generator for batches of random data.
     :param cfg:
     :return:
     """
+
+    # -- TODO: LSTMs
+
     distill = cfg.up.transfer == 'distill'
     context = cfg.arch.embedding.max_seq_length
+
+    if cfg.up.source_mode.startswith('lstm'):
+
+        source = up.LSTMGen(cfg.up.lstmemb, mask_channel=False, num_tokens= num_tokens, layers=cfg.up.lstmlayers)
+
+        lstmdev = 'cuda' if torch.cuda.is_available() else 'cpu'
+        source.to(lstmdev)
+
+        buffer = torch.randint(low=0, high= num_tokens, size=(cfg.up.buffer_size, 1), device=lstmdev)
+        buffer = buffer.tile((1, context))
 
     if cfg.up.source_mode.startswith('nn'):
         # randomness source model
@@ -142,13 +184,45 @@ def data_generator(num_tokens, cfg):
         # -- In distill mode, the buffer stores all logits that the source model produced. Otherwise, we just store a
         #    sample of the tokens.
 
-
     num = 0
 
     while True:
         with (torch.no_grad()):
 
             # Process the buffer
+            if cfg.up.source_mode == 'lstm':
+
+                # replace some random rows in the buffer with constant and random sequences
+                con, ran = cfg.up.lstmreset
+
+                rows = rand_batch(context, con, ran)
+
+                idx = random.sample(range(cfg.up.buffer_size), rows.size(0))
+                buffer[idx] = rows
+
+                # Re-initialize the source
+                source.reset_parameters()
+                mult_sample = np.random.uniform(*cfg.up.lstmmult)
+
+                # print(f'mult {mult_sample:.4} \t temp {np.log10(temp_sample):.4}')
+                lstm_scale(source.lstm, mult_sample)
+                source.token_embedding.weight.data *= cfg.up.lstmembmult
+
+                # slice a random selection of rows from the buffer (without replacement)
+                iseeds = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
+                iconds = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
+
+                s = random.randrange(0, context - cfg.up.lstmseed)
+                seeds = buffer[iseeds, s:s + cfg.up.lstmseed]
+                conds = buffer[iconds, :]
+
+                chars = source.sample_sequence(seed=seeds,
+                                                max_context=context, num_tokens=num_tokens,
+                                                length=context - seeds.size(1), temperature=cfg.up.lstmtemp,
+                                                conditional=conds)
+
+                buffer[iconds, :] = chars
+
             if cfg.up.source_mode == 'nn':
                 tic()
 
@@ -231,6 +305,10 @@ def data_generator(num_tokens, cfg):
                 logits = source(input)
                 batch = sample(logits, temperature=cfg.up.temperature)
 
+            if cfg.up.source_mode == 'lstm':
+
+                ibatch = random.sample(range(cfg.up.buffer_size), cfg.up.batch_size)
+                batch = buffer[ibatch, :]
 
             yield batch
 
@@ -351,6 +429,8 @@ def pretrain(cfg, setup):
                 loss[tomask] *= cfg.up.loss_mask_scale
                 loss = loss.mean()
 
+                # -- Distillation works ok, but it's too expensive compared to data-only
+
             else:
                 raise
 
@@ -366,10 +446,12 @@ def pretrain(cfg, setup):
 
         gnm, gnv = em_meanvar(gn, gnm, gnv)
 
+        # TODO: This is unnecessary. Copy from regular, fix the gradient accumulation.
+
         mbatch_size += 1
 
         if mbatch_size > int(acc):  # perform a step
-            # -- If this looks weird, it's because we want to be able to warm up the acc gradually. Do do this, we make
+            # -- If this looks weird, it's because we want to be able to warm up the acc gradually. To do this, we make
             #    it a float and only cast it to an int when we check if we're at the required macrobatch size.
 
             scaler.step(opt)
@@ -600,13 +682,14 @@ def main_training_process(cfg, setup):
 
         elif cfg.up.mode == 'norm':
 
-            # Freeze the UP model
-            for parm in upmodel.parameters():
-                parm.requires_grad = False
-            upmodel.to(d())
-
-            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-            use_alpha = True
+            # # Freeze the UP model
+            # for parm in upmodel.parameters():
+            #     parm.requires_grad = False
+            # upmodel.to(d())
+            #
+            # model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            # use_alpha = True
+            raise # -- too slow
 
         elif cfg.up.mode == 'init':
 
@@ -617,21 +700,23 @@ def main_training_process(cfg, setup):
 
                 # Pick a halfway point between the raw initialized model and the pretrained one
                 a = cfg.up.aux_alpha
+
                 for mparm, uparm in zip(model.parameters(), upmodel.parameters()):
                     mparm.data = mparm.data * (1 - a) + uparm.data * a
 
             use_alpha = False
 
         elif cfg.up.mode == 'distill':
-            print('Using distillation mode.')
-
-            model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
-            upmodel.to(d())
-
-            if cfg.impl.compile_torch:
-                upmodel = torch.compile(upmodel)
-
-            use_alpha = True
+            # print('Using distillation mode.')
+            #
+            # model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+            # upmodel.to(d())
+            #
+            # if cfg.impl.compile_torch:
+            #     upmodel = torch.compile(upmodel)
+            #
+            # use_alpha = True
+            raise # -- too slow
 
         else:
             raise ValueError(f'Transfer mode {cfg.up.mode} not recognized.')

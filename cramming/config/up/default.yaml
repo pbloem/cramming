@@ -58,8 +58,9 @@ manual: false          # Do the DP training manually, bypassing the cramming eng
 mode: 'init'           # Model transfer mode: init (initialize weights from the DP model), norm (add an aux loss term
                        # for the distance between the model weight and the dp model weights), distill (distillation on
                        # the output probabilities), none (no transfer, for debugging).
-aux_alpha: 1.0         # The multiplier for the auxiliary loss (both distill and norm)
-which_aux: all         # Which parts of the model to compute the norm aux loss over (all, layers only, layers and embeddings)
+aux_alpha: 1.0         # The multiplier for the auxiliary loss (both 'distill' and 'norm'). In 'init' mode this is used to mix
+                       # between the default init and the UP init.
+which_aux: all         # Which parts of the model to compute the norm aux loss over.
 data_path: '.'         # Where to store the dataset cache
 early_stop: -1.0       # If positive, then stop the dp finetuning if the EMA of the loss gets below this value.
 alpha_warmup: -1       # If pos, how long to warm up the alpha (during DP). Between 0 and 1 (proportion of time budget).
@@ -67,3 +68,11 @@ alpha_cooldown: -1     # If neg, how long to cool down the alpha (during DP). Be
                        # If a pair, we cool down from the first point to the second, and stay at 0 after that.
 use_log_alpha: false   # Schedule the alpha log-linearly
 log_alpha_min: 1e-12   # The minimum value for the alpha
+lstmemb: 64            # Embedding for the LSTM source
+lstmlayers: 1          # Number of layers in the LSTM source
+lstmreset: 20,20       # Number of instances to reset (constant and random)
+lstmmult: 0,1.1        # Range from which to sample the LSTM multiplier
+lstmseed: 8            # Seed size for the LSTM source
+lstmtemp: 1e-4         # Sampling temperature for the LSTM source
+
+
