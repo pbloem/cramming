@@ -521,11 +521,10 @@ def pretrain(cfg, setup):
             wandb.log({
                 'loss': loss,
                 'learning_rate': opt.param_groups[0]['lr'],
-                'gradient_norm': gn,
                 'sample_time': sampletime,
                 'train_time': traintime,
                 'pre-training': 1.0,
-                'acc': acc
+                'acc': mbraw
             }, step=seen)
 
         bar.set_postfix({'loss': f'{loss:.02}'})
