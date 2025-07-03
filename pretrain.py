@@ -664,7 +664,9 @@ def main_training_process(cfg, setup):
     opt_sd = None
     rmix = -1.0
     use_alpha = False
+
     if cfg.up.enabled:
+
         if cfg.up.snapshot is None:
             print(f'Pretraining UP model')
 
@@ -726,7 +728,6 @@ def main_training_process(cfg, setup):
 
             use_alpha = False
 
-
         elif cfg.up.mode == 'norm':
 
             # # Freeze the UP model
@@ -742,12 +743,12 @@ def main_training_process(cfg, setup):
 
             if cfg.up.aux_alpha <= 0.0:
                 model = upmodel
+                print("Model set.")
             else:
                 model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
                 # Pick a halfway point between the raw initialized model and the pretrained one
                 a = cfg.up.aux_alpha
-
                 for mparm, uparm in zip(model.parameters(), upmodel.parameters()):
                     mparm.data = mparm.data * (1 - a) + uparm.data * a
 
