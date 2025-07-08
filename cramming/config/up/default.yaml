@@ -75,6 +75,7 @@ lstmlayers: 1          # Number of layers in the LSTM source
 lstmreset: [20,20]     # Number of instances to reset (constant and random)
 lstmmult: [0,1.1]      # Range from which to sample the LSTM multiplier
 lstmembmult: 1.0       # Multiplier for the embeddings of the LSTM source
+lstmlinmult: 1.0       # Multiplier for the linear layer (output head)
 lstmseed: 8            # Seed size for the LSTM source
 lstmtemp: 1e-4         # Sampling temperature for the LSTM source
 

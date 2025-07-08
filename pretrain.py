@@ -142,7 +142,7 @@ def data_generator(num_tokens, cfg):
 
     if cfg.up.source_mode.startswith('lstm'):
 
-        source = up.LSTMGen(cfg.up.lstmemb, mask_channel=False, num_tokens= num_tokens, layers=cfg.up.lstmlayers)
+        source = up.LSTMGen(cfg.up.lstmemb, mask_channel=False, num_tokens=num_tokens, layers=cfg.up.lstmlayers)
 
         lstmdev = 'cuda' if torch.cuda.is_available() else 'cpu'
         source.to(lstmdev)
@@ -206,7 +206,9 @@ def data_generator(num_tokens, cfg):
 
                 # print(f'mult {mult_sample:.4} \t temp {np.log10(temp_sample):.4}')
                 lstm_scale(source.lstm, mult_sample)
+
                 source.token_embedding.weight.data *= cfg.up.lstmembmult
+                source.toprobs.weight.data *= cfg.up.lstmlinmult
 
                 # slice a random selection of rows from the buffer (without replacement)
                 iseeds = random.sample(range(buffer.size(0)), cfg.up.sample_batch_size)
