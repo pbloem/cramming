@@ -375,11 +375,9 @@ def pretrain(cfg, setup):
     accumulated = 0 # nr of instances accumulated currently
     # cfg.up.accumulate = macrobatch_size
     if cfg.up.acc_warmup > 0:
-        mbraw =  cfg.up.batch_size # the macrobatch size
-        mbdelta = (cfg.up.accumulate - cfg.up.batch_size) / cfg.up.acc_warmup
-        # -- By how much to increase the warmup per instance
+        mbraw =  cfg.up.batch_size # the macrobatch size (starts eq to the microbatch size)
     else:
-        acc = cfg.up.accumulate # macrobatch size
+        mbraw = cfg.up.accumulate # macrobatch size
 
     accumulated = 0 # nr of instances accumulated currently
 
