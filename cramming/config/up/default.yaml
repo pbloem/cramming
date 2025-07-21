@@ -59,7 +59,7 @@ manual: false          # Do the DP training manually, bypassing the cramming eng
 mode: 'init'           # Model transfer mode: init (initialize weights from the DP model), norm (add an aux loss term
                        # for the distance between the model weight and the dp model weights), distill (distillation on
                        # the output probabilities), none (no transfer, for debugging).
-aux_alpha: -1.0         # The multiplier for the auxiliary loss (both 'distill' and 'norm'). In 'init' mode this is used to mix
+aux_alpha: -1.0        # The multiplier for the auxiliary loss (both 'distill' and 'norm'). In 'init' mode this is used to mix
                        # between the default init and the UP init.
 which_aux: all         # Which parts of the model to compute the norm aux loss over.
 data_path: '.'         # Where to store the dataset cache
@@ -78,5 +78,8 @@ lstmembmult: 1.0       # Multiplier for the embeddings of the LSTM source
 lstmlinmult: 1.0       # Multiplier for the linear layer (output head)
 lstmseed: 8            # Seed size for the LSTM source
 lstmtemp: 1e-4         # Sampling temperature for the LSTM source
+freeze_layers: []      # Layers to keep frozen during pretraining. The idea is that the model retains some capacity to
+                       # store "world knowledge" that it doesn't learn during UP.
+
 
 
