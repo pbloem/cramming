@@ -357,7 +357,7 @@ def pretrain(cfg, setup):
         opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
         # TODO: Remove this and always use cramming opt
 
-    for i, layer in enumerate(model.layers):
+    for i, layer in enumerate(model.encoder.layers):
         if i in cfg.up.freeze_layers:
             print('Freezing layer', i)
             for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
@@ -569,7 +569,7 @@ def pretrain(cfg, setup):
         # -- not pretty, but whatever.
 
     # Unfreeze layers
-    for i, layer in enumerate(model.layers):
+    for i, layer in enumerate(model.encoder.layers):
         if i in cfg.up.freeze_layers:
             print('Unfreezing layer', i)
             for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
