@@ -716,6 +716,7 @@ def main_training_process(cfg, setup):
             print(f'Pretraining UP model')
 
             upmodel, opt = pretrain(cfg, setup)
+            opt.to('cuda')
 
             # opt_sd = opt.state_dict()
 
