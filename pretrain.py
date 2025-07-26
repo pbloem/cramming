@@ -322,8 +322,8 @@ class AdWrap(nn.Module):
         self.ad = adapter
         self.mult = nn.Parameter(torch.tensor(0.0))
 
-    def forward(self, x):
-        return x + self.ad(x) * self.mult
+    def forward(self, states, mask):
+        return states + self.ad(states) * self.mult
 
 def pretrain(cfg, setup):
 
