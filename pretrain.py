@@ -317,6 +317,8 @@ def data_generator(num_tokens, cfg):
 class AdWrap(nn.Module):
 
     def __init__(self, adapter):
+        super().__init__()
+
         self.ad = adapter
         self.mult = nn.Parameter(torch.tensor(0.0))
 
