@@ -716,7 +716,8 @@ def main_training_process(cfg, setup):
             print(f'Pretraining UP model')
 
             upmodel, opt = pretrain(cfg, setup)
-            opt_sd = opt.state_dict()
+
+            # opt_sd = opt.state_dict()
 
         else:
             print(f'Loading UP snapshot from file {cfg.up.snapshot}')
@@ -844,33 +845,35 @@ def main_training_process(cfg, setup):
 
     if cfg.up.enabled and cfg.up.reuse_opt: # transfer opt state
         with torch.no_grad():
-            assert opt_sd is not None
+            # assert opt_sd is not None
+            #
+            # print('state dict:')
+            #
+            # if cfg.up.opt_mult > 0.0:
+            #     for val in opt_sd['state'].values():
+            #         val['exp_avg'] *= cfg.up.opt_mult
+            #         val['exp_avg_sq'] *= cfg.up.opt_mult
+            #
+            #         print('    min/max for exp. avg', val['exp_avg'].min(), val['exp_avg'].max())
+            #
+            # print()
+            # # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
+            # #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
+            # #    universal pretraining.
 
-            print('state dict:')
+            # print(len(cfg.train.limited_decay_keys))
+            # print('target state dict')
+            # print(model_engine.optimizer.state_dict()['param_groups'])
+            # print()
+            # print('source state dict')
+            # print(opt_sd['param_groups'])
 
-            if cfg.up.opt_mult > 0.0:
-                for val in opt_sd['state'].values():
-                    val['exp_avg'] *= cfg.up.opt_mult
-                    val['exp_avg_sq'] *= cfg.up.opt_mult
+            # # Reuse the optimizer from the UP training
+            # model_engine.optimizer.load_state_dict(opt_sd)
+            # # -- If this fails, it may be due to the weight decay being set to 0.0 for this run but not for the
+            # #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
 
-                    print('    min/max for exp. avg', val['exp_avg'].min(), val['exp_avg'].max())
-
-            print()
-            # -- Apply a multiplier to the exp moving average and the second moment. This can be seen as a convex
-            #    combination of the fresh optimizer state (which is zero) and the optimizer state inherited from the
-            #    universal pretraining.
-
-            print(len(cfg.train.limited_decay_keys))
-            print('target state dict')
-            print(model_engine.optimizer.state_dict()['param_groups'])
-            print()
-            print('source state dict')
-            print(opt_sd['param_groups'])
-
-            # Reuse the optimizer from the UP training
-            model_engine.optimizer.load_state_dict(opt_sd)
-            # -- If this fails, it may be due to the weight decay being set to 0.0 for this run but not for the
-            #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
+            model_engine.optimizer = opt # Does this work?
 
     # Reset betas to the value given in the CL params
     if cfg.up.reset_betas:
