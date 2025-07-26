@@ -890,7 +890,7 @@ def main_training_process(cfg, setup):
     print('optimizer:')
     for i, g in enumerate(model_engine.optimizer.param_groups):
         print('    group', i)
-        for k,v in g:
+        for k,v in g.items():
             print(k, v)
         #
         # print('    lr', g['lr'])
