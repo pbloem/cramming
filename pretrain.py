@@ -354,7 +354,7 @@ def pretrain(cfg, setup):
         elif mode == 'a':
             adapters.append(layer.to('cpu')) # store for later
 
-    model.encoder.layers = nn.ModuleList(*layers)
+    model.encoder.layers = nn.ModuleList(layers)
 
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
 
