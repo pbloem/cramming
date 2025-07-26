@@ -599,7 +599,7 @@ def pretrain(cfg, setup):
     print('After inserting Adapters.')
     print(model)
 
-    opt.add_param_group({'adapters': newparms})
+    opt.add_param_group({'params': newparms})
 
     # # Unfreeze layers
     # for i, layer in enumerate(model.encoder.layers):
