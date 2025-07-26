@@ -346,8 +346,9 @@ def pretrain(cfg, setup):
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
 
+    # Take out certain layers to be re-inserted as adapters after UP
     adapters, layers = deque(), []
-    for mode, layer in zip(cfg.up.pattern(), model.encoder.layers):
+    for mode, layer in zip(cfg.up.pattern, model.encoder.layers):
         if mode == 'u':
             layers.append(layer) # becomes a layer in the pre-training model
         elif mode == 'a':
