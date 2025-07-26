@@ -18,6 +18,8 @@ from collections.abc import Iterable
 import cramming
 
 from cramming.backend import _load_optimizer
+from cramming.backend.optimizers.schedulers import get_schedule_fn
+
 
 import up, random, wandb, gc, math, copy, tqdm
 
@@ -874,6 +876,8 @@ def main_training_process(cfg, setup):
             # #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
 
             model_engine.optimizer = opt # Does this work?
+            scheduler = get_schedule_fn(model_engine.initial_time, cfg.train)(opt)
+            model_engine.scheduler = scheduler
 
     # Reset betas to the value given in the CL params
     if cfg.up.reset_betas:
@@ -887,13 +891,13 @@ def main_training_process(cfg, setup):
         for g in model_engine.optimizer.param_groups:
             g['weight_decay'] = cfg.train.optim.weight_decay
 
-    print('optimizer:')
-    for i, g in enumerate(model_engine.optimizer.param_groups):
-        print('    group', i)
-        for k,v in g.items():
-            if type(v) is not torch.Tensor:
-                print(k, v)
-        #
+    # print('optimizer:')
+    # for i, g in enumerate(model_engine.optimizer.param_groups):
+    #     print('    group', i)
+    #     for k,v in g.items():
+    #         if type(v) is not torch.Tensor and type(v) is not nn.Parameter:
+    #             print(k, v)
+
         # print('    lr', g['lr'])
         # print('    initial lr', g['initial_lr'])
         # print('    weight_decay', g['weight_decay'])
