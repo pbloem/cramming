@@ -579,7 +579,7 @@ def pretrain(cfg, setup):
     # Restore the untrained (adapter) layers
     current = 0 # index of the 'u' layer before which we're inserting
     newparms = []
-    for mode in cfg.up.pattern():
+    for mode in cfg.up.pattern:
         if mode == 'u':
             current += 1
         elif mode == 'a':
@@ -593,6 +593,9 @@ def pretrain(cfg, setup):
             current += 1
         else:
             raise
+
+    print('After inserting Adapters.')
+    print(model)
 
     opt.add_param_group({'adapters': newparms})
 
