@@ -891,7 +891,8 @@ def main_training_process(cfg, setup):
     for i, g in enumerate(model_engine.optimizer.param_groups):
         print('    group', i)
         for k,v in g.items():
-            print(k, v.size() if type(v) is torch.Tensor else v)
+            if type(v) is not torch.Tensor:
+                print(k, v)
         #
         # print('    lr', g['lr'])
         # print('    initial lr', g['initial_lr'])
