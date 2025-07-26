@@ -562,9 +562,9 @@ def pretrain(cfg, setup):
                 wandb.log({f'ood/val-{name}': est})
 
     opt.zero_grad()
-    optimizer_to(opt, 'cpu')
-    # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
-    #    leading to OOM.
+    # optimizer_to(opt, 'cpu')
+    # # -- We send the optimizer to the CPU. This avoids (?) issues with the optimizer states on GPU not being cleared,
+    # #    leading to OOM.
 
     if cfg.up.snapshot_file is not None:
         print(f'Saving snapshot to {cfg.up.snapshot_file}')
@@ -716,7 +716,6 @@ def main_training_process(cfg, setup):
             print(f'Pretraining UP model')
 
             upmodel, opt = pretrain(cfg, setup)
-            opt.to('cuda')
 
             # opt_sd = opt.state_dict()
 
