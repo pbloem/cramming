@@ -890,10 +890,13 @@ def main_training_process(cfg, setup):
     print('optimizer:')
     for i, g in enumerate(model_engine.optimizer.param_groups):
         print('    group', i)
-        print('    lr', g['lr'])
-        print('    initial lr', g['initial_lr'])
-        print('    weight_decay', g['weight_decay'])
-        print('    betas', g['betas'])
+        for k,v in g:
+            print(k, v)
+        #
+        # print('    lr', g['lr'])
+        # print('    initial lr', g['initial_lr'])
+        # print('    weight_decay', g['weight_decay'])
+        # print('    betas', g['betas'])
 
     model_engine.train(cfg.train.pretrain_in_train_mode)
     stats = defaultdict(list)
