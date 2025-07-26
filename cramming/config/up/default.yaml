@@ -78,8 +78,9 @@ lstmembmult: 1.0       # Multiplier for the embeddings of the LSTM source
 lstmlinmult: 1.0       # Multiplier for the linear layer (output head)
 lstmseed: 8            # Seed size for the LSTM source
 lstmtemp: 1e-4         # Sampling temperature for the LSTM source
-freeze_layers: []      # Layers to keep frozen during pretraining. The idea is that the model retains some capacity to
-                       # store "world knowledge" that it doesn't learn during UP.
+pattern: 'uuuuuuuuuuuuuuuu' # The pattern of pre-trained layers 'u' and layers 'a' that are inserted after pretraining
+                       # (Should contain 16 characters in the default setting). So, a pattern like aaauaaauaaauaaau
+                       # trains a four layer UP model, and then inserts 12 new layers at different places for a DP model.
 
 
 

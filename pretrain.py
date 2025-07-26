@@ -12,7 +12,7 @@ import time
 import datetime
 import logging
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Iterable
 
 import cramming
@@ -314,6 +314,15 @@ def data_generator(num_tokens, cfg):
 
             yield batch
 
+class AdWrap(nn.Module):
+
+    def __init__(self, adapter):
+        self.ad = adapter
+        self.mult = nn.Parameter(torch.tensor(0.0))
+
+    def forward(self, x):
+        return x + self.ad(x) * self.mult
+
 def pretrain(cfg, setup):
 
     print('Start universal pretraining.')
@@ -336,6 +345,16 @@ def pretrain(cfg, setup):
 
     # pre-training target model
     model = cramming.construct_model(cfg.arch, cfg.data.vocab_size)
+
+    adapters, layers = deque(), []
+    for mode, layer in zip(cfg.up.pattern(), model.encoder.layers):
+        if mode == 'u':
+            layers.append(layer) # becomes a layer in the pre-training model
+        elif mode == 'a':
+            adapters.append(layer.to('cpu')) # store for later
+
+    model.encoder.layers = nn.ModuleList(*layers)
+
     num_tokens = model.encoder.embedding.word_embedding.num_embeddings
 
     datagen = data_generator(num_tokens, cfg)
@@ -357,11 +376,11 @@ def pretrain(cfg, setup):
         opt = torch.optim.Adam(lr=cfg.up.lr, params=model.parameters())
         # TODO: Remove this and always use cramming opt
 
-    for i, layer in enumerate(model.encoder.layers):
-        if i in cfg.up.freeze_layers:
-            print('Freezing layer', i)
-            for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
-                parm.requires_grad = False
+    # for i, layer in enumerate(model.encoder.layers):
+    #     if i in cfg.up.freeze_layers:
+    #         print('Freezing layer', i)
+    #         for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
+    #             parm.requires_grad = False
 
     if cfg.up.warmup > 0:
         lr = 0.0
@@ -450,18 +469,6 @@ def pretrain(cfg, setup):
 
         scaler.scale(loss).backward()
         accumulated += inputs.size(0)
-
-        # # Adaptive gradient clipping. We keep an exponential moving estimate of the mean and variance of the gradient
-        # # norm, and if the current norm is more than `cfg.up.gc` standard deviations above the mean, we clip it to
-        # # that value.
-        # gn = gradient_norm(model)
-        # lim = gnm + math.sqrt(gnv) * cfg.up.gc
-        # if i > 10 and gn > lim:
-        #     nn.utils.clip_grad_norm_(model.parameters(), lim)
-
-        # gnm, gnv = em_meanvar(gn, gnm, gnv)
-
-        # TODO: This is unnecessary. Copy from regular, fix the gradient accumulation.
 
         if accumulated >= mbraw: # perform a step
 
@@ -568,13 +575,32 @@ def pretrain(cfg, setup):
         exit()
         # -- not pretty, but whatever.
 
-    # Unfreeze layers
-    for i, layer in enumerate(model.encoder.layers):
-        if i in cfg.up.freeze_layers:
-            print('Unfreezing layer', i)
-            for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
-                parm.requires_grad = True
+    # Restore the untrained (adapter) layers
+    current = 0 # index of the 'u' layer before which we're inserting
+    newparms = []
+    for mode in cfg.up.pattern():
+        if mode == 'u':
+            current += 1
+        elif mode == 'a':
+            # get the adapter from the store, move to cuda
+            adapter = adapters.popleft().to('cuda')
+            adapter = AdWrap(adapter)
 
+            model.encoder.layers.insert(current, adapter)
+            newparms.extend(adapter.parameters())
+
+            current += 1
+        else:
+            raise
+
+    opt.add_param_group({'adapters': newparms})
+
+    # # Unfreeze layers
+    # for i, layer in enumerate(model.encoder.layers):
+    #     if i in cfg.up.freeze_layers:
+    #         print('Unfreezing layer', i)
+    #         for parm in list(layer.attn.parameters()) + list(layer.ffn.parameters()):
+    #             parm.requires_grad = True
 
     return model, opt
 
