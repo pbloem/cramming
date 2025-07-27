@@ -81,6 +81,7 @@ lstmtemp: 1e-4         # Sampling temperature for the LSTM source
 pattern: 'uuuuuuuuuuuuuuuu' # The pattern of pre-trained layers 'u' and layers 'a' that are inserted after pretraining
                        # (Should contain 16 characters in the default setting). So, a pattern like aaauaaauaaauaaau
                        # trains a four layer UP model, and then inserts 12 new layers at different places for a DP model.
+eval_batch_mult: 1.5   # How much bigger the batch size is for evaluation
 
 
 

@@ -558,7 +558,7 @@ def pretrain(cfg, setup):
                         data=data,
                         nsamples=cfg.up.eval_samples,
                         context=cfg.data.seq_length,
-                        batch_size=int(cfg.up.batch_size * 2.0)
+                        batch_size=int(cfg.up.batch_size * cfg.up.eval_batch_mult)
                     )
 
                 wandb.log({f'ood/val-{name}': est})
