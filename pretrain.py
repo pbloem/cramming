@@ -878,7 +878,7 @@ def main_training_process(cfg, setup):
             model_engine.optimizer = opt # Does this work?
 
             # Reset the learning rate
-            model_engine.optimizer.lr = cfg.train.lr
+            model_engine.optimizer.lr = cfg.train.optim.lr
             for g in opt.param_groups:
                 g['lr'] = cfg.train.optim.lr
                 del q['initial_lr']
