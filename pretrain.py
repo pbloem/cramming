@@ -881,7 +881,9 @@ def main_training_process(cfg, setup):
             model_engine.optimizer.lr = cfg.train.optim.lr
             for g in opt.param_groups:
                 g['lr'] = cfg.train.optim.lr
-                del g['initial_lr']
+                if 'initial_lr' in g:
+                    del g['initial_lr']
+                    print('deleted initial lr')
 
             scheduler = get_schedule_fn(model_engine.initial_time, cfg.train)(opt)
             model_engine.scheduler = scheduler
