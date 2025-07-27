@@ -876,6 +876,13 @@ def main_training_process(cfg, setup):
             # #    pretraining run (or vice versa). This seems to result in different numbers of parameter groups.
 
             model_engine.optimizer = opt # Does this work?
+
+            # Reset the learning rate
+            model_engine.optimizer.lr = cfg.train.lr
+            for g in opt.param_groups:
+                g['lr'] = cfg.train.optim.lr
+                del q['initial_lr']
+
             scheduler = get_schedule_fn(model_engine.initial_time, cfg.train)(opt)
             model_engine.scheduler = scheduler
 
