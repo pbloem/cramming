@@ -885,6 +885,9 @@ def main_training_process(cfg, setup):
                     del g['initial_lr']
                     print('deleted initial lr')
 
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+
             scheduler = get_schedule_fn(model_engine.initial_time, cfg.train)(opt)
             model_engine.scheduler = scheduler
 
