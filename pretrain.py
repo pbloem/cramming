@@ -589,7 +589,11 @@ def pretrain(cfg, setup):
         elif mode == 'a':
             # get the adapter from the store, move to cuda
             adapter = adapters.popleft().to('cuda')
-            adapter = AdWrap(adapter)
+
+            adapter.norm2.weight.data *= 0
+            #-- The layernorm is applied before the FFN, but the FFN has no biases, so this
+            #   should result in a residual of 0. The activation is a gated linear unit (with
+            #   a GELU), so the zero values in the lkinear half will cause the output to become 0.
 
             model.encoder.layers.insert(current, adapter)
             newparms.extend(adapter.parameters())
@@ -886,7 +890,7 @@ def main_training_process(cfg, setup):
                     print('deleted initial lr')
 
             with torch.no_grad():
-                torch.cuda.empty_cache()
+                torch.cuda.empty_cache() # This doesn't seem to help.
 
             scheduler = get_schedule_fn(model_engine.initial_time, cfg.train)(opt)
             model_engine.scheduler = scheduler
