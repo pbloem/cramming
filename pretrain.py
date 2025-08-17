@@ -590,9 +590,9 @@ def pretrain(cfg, setup):
             # get the adapter from the store, move to cuda
             adapter = adapters.popleft().to('cuda')
 
-            adapter.norm1.weight.data *= 0
-            #-- Biases are disabked for the attn, so setting the input to zero guarantees a zero output.
-            adapter.norm2.weight.data *= 0
+            adapter.norm1.weight.data *= cfg.up.adapter_mult
+            #-- Biases are disabled for the attn, so setting the input to zero guarantees a zero output.
+            adapter.norm2.weight.data *= cfg.up.adapter_mult
             #-- The layernorm is applied before the FFN, but the FFN has no biases, so this
             #   should result in a residual of 0. The activation is a gated linear unit (with
             #   a GELU), so the zero values in the lkinear half will cause the output to become 0.
